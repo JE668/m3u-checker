@@ -18,7 +18,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 关键步骤：将仓库名转换为小写
       - name: Lowercase the repo name
         run: |
           echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
@@ -35,5 +34,4 @@ jobs:
         with:
           context: .
           push: true
-          # 使用转换后的小写变量 env.IMAGE_NAME
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
