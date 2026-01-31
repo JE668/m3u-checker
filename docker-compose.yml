@@ -1,0 +1,16 @@
+services:
+  m3u-checker:
+    image: ghcr.io/JE668/m3u-checker:latest
+    container_name: m3u-checker
+    restart: always
+    ports:
+      - "5123:5123"
+    environment:
+      - TZ=Asia/Shanghai  # 极其重要：确保定时任务时间与你一致
+    volumes:
+      - ./iptv_data:/app/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
