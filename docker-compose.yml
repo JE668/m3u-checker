@@ -1,6 +1,6 @@
 services:
   m3u-checker:
-    image: ghcr.io/JE668/m3u-checker:latest
+    image: ghcr.io/je668/m3u-checker:latest
     container_name: m3u-checker
     restart: always
     ports:
