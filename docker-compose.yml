@@ -6,7 +6,12 @@ services:
     ports:
       - "5123:5123"
     environment:
-      - TZ=Asia/Shanghai  # 极其重要：确保定时任务时间与你一致
+      - TZ=Asia/Shanghai
+      # 开启硬件加速开关
+      - USE_HWACCEL=true 
+    devices:
+      # 映射 Intel 集显设备
+      - /dev/dri:/dev/dri 
     volumes:
       - ./iptv_data:/app/data
     logging:
