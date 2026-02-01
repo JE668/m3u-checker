@@ -46,18 +46,35 @@ def get_ip_info(url):
     except: return "📍解析失败"
 
 def probe_stream(url, use_hw):
-    """智能探测：尝试 GPU，失败则回退 CPU"""
-    # 尝试 GPU 模式
+    """
+    智能探测：
+    1. 优先尝试环境变量指定的硬件加速 (QSV 或 VAAPI)
+    2. 失败则回退到 CPU 软件解码
+    """
+    accel_type = os.getenv("HW_ACCEL_TYPE", "vaapi").lower() # 获取 quicksync 或 vaapi
+    device = os.getenv("QSV_DEVICE") or os.getenv("VAAPI_DEVICE") or "/dev/dri/renderD128"
+    
     if use_hw:
         try:
-            cmd_gpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', 
-                       '-hwaccel', 'vaapi', '-hwaccel_device', '/dev/dri/renderD128', '-i', url, '-timeout', '5000000']
-            out = subprocess.check_output(cmd_gpu, stderr=subprocess.STDOUT).decode('utf-8')
-            return json.loads(out)['streams'][0], "💎" # 返回结果和硬件标志
-        except:
-            pass # 硬件失败，进入下方软件探测
+            # 构建硬件加速参数
+            if accel_type == "quicksync" or accel_type == "qsv":
+                # QSV 模式参数
+                hw_args = ['-hwaccel', 'qsv', '-qsv_device', device]
+                mode_icon = "⚡" # QuickSync 专属图标
+            else:
+                # VAAPI 模式参数
+                hw_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device, '-hwaccel_output_format', 'vaapi']
+                mode_icon = "💎"
 
-    # 软件探测 (CPU)
+            cmd_hw = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0'] + hw_args + ['-i', url, '-timeout', '5000000']
+            out = subprocess.check_output(cmd_hw, stderr=subprocess.STDOUT).decode('utf-8')
+            return json.loads(out)['streams'][0], mode_icon
+        except Exception as e:
+            # 硬件探测失败日志 (内部记录，不输出到 UI 刷屏)
+            print(f"Hardware probe failed: {e}")
+            pass
+
+    # 软件探测回退 (CPU)
     cmd_cpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', '-i', url, '-timeout', '5000000']
     out = subprocess.check_output(cmd_cpu, stderr=subprocess.STDOUT).decode('utf-8')
     return json.loads(out)['streams'][0], "💻"
