@@ -329,21 +329,40 @@
     let pollTimer = null;
     const modal = new bootstrap.Modal(document.getElementById('editModal'));
 
-    async function loadSubs() {
-        const res = await fetch('/api/subs');
-        subs = await res.json();
-        const list = document.getElementById('subsList');
-        list.innerHTML = subs.map(s => `
-            <div class="sub-item ${s.id === currentId ? 'active' : ''}" onclick="selectSub('${s.id}')">
-                <div class="d-flex align-items-center">
-                    <i class="bi bi-collection-play me-3 fs-4 opacity-75"></i>
-                    <div class="overflow-hidden">
-                        <div class="fw-bold text-truncate">${s.name}</div>
-                        <div class="small opacity-50 text-truncate" style="font-size: 11px;">${s.id} | ${s.schedule_mode}</div>
-                    </div>
-                </div>
-            </div>
-        `).join('');
+    async function updateStatus() {
+        if(!currentId) return;
+        const res = await fetch('/api/status/' + currentId);
+        const data = await res.json();
+        
+        document.getElementById('statTotal').innerText = data.total;
+        document.getElementById('statCurrent').innerText = data.current;
+        document.getElementById('statSuccess').innerText = data.success;
+        const rate = data.current > 0 ? Math.round(data.success/data.current*100) : 0;
+        document.getElementById('statRate').innerText = rate + '%';
+        
+        const p = data.total > 0 ? Math.round(data.current/data.total*100) : 0;
+        document.getElementById('pBar').style.width = p + '%';
+        document.getElementById('pText').innerText = p + '%';
+
+        const runBtn = document.getElementById('runBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        if(data.running) {
+            runBtn.classList.add('d-none'); stopBtn.classList.remove('d-none');
+        } else {
+            runBtn.classList.remove('d-none'); stopBtn.classList.add('d-none');
+        }
+
+        const con = document.getElementById('console');
+        // 关键点：直接显示日志，不再在 JS 里生成时间戳，避免误导
+        con.innerHTML = data.logs.map(l => {
+            let cls = "";
+            if(l.includes('✅')) cls = "log-success";
+            if(l.includes('❌')) cls = "log-fail";
+            return `<div class="log-line">
+                <span class="${cls}">${l}</span>
+            </div>`;
+        }).join('');
+        con.scrollTop = con.scrollHeight;
     }
 
     function selectSub(id) {
