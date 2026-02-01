@@ -7,12 +7,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 
+# --- 路径与存储 ---
 DATA_DIR = "/app/data"
 OUTPUT_DIR = os.path.join(DATA_DIR, "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 
-# 存储各订阅源的实时状态
+# --- 状态记录 ---
 subs_status = {}
 ip_cache = {}
 api_lock = threading.Lock()
@@ -42,39 +43,29 @@ def get_ip_info(url):
                 info = f"📍{res.get('city','')} | 🏢{res.get('isp','')}"
                 ip_cache[ip] = info
                 return info
-        return "📍未知"
+        return "📍未知位置"
     except: return "📍解析失败"
 
 def probe_stream(url, use_hw):
-    """
-    智能探测：
-    1. 优先尝试环境变量指定的硬件加速 (QSV 或 VAAPI)
-    2. 失败则回退到 CPU 软件解码
-    """
-    accel_type = os.getenv("HW_ACCEL_TYPE", "vaapi").lower() # 获取 quicksync 或 vaapi
+    """智能探测：适配 QuickSync 和 VAAPI"""
+    accel_type = os.getenv("HW_ACCEL_TYPE", "vaapi").lower()
     device = os.getenv("QSV_DEVICE") or os.getenv("VAAPI_DEVICE") or "/dev/dri/renderD128"
     
     if use_hw:
         try:
-            # 构建硬件加速参数
-            if accel_type == "quicksync" or accel_type == "qsv":
-                # QSV 模式参数
+            if accel_type in ["quicksync", "qsv"]:
                 hw_args = ['-hwaccel', 'qsv', '-qsv_device', device]
-                mode_icon = "⚡" # QuickSync 专属图标
+                icon = "⚡"
             else:
-                # VAAPI 模式参数
                 hw_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device, '-hwaccel_output_format', 'vaapi']
-                mode_icon = "💎"
+                icon = "💎"
 
-            cmd_hw = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0'] + hw_args + ['-i', url, '-timeout', '5000000']
-            out = subprocess.check_output(cmd_hw, stderr=subprocess.STDOUT).decode('utf-8')
-            return json.loads(out)['streams'][0], mode_icon
-        except Exception as e:
-            # 硬件探测失败日志 (内部记录，不输出到 UI 刷屏)
-            print(f"Hardware probe failed: {e}")
-            pass
+            cmd = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0'] + hw_args + ['-i', url, '-timeout', '5000000']
+            out = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
+            return json.loads(out)['streams'][0], icon
+        except:
+            pass # 硬件失败回退到 CPU
 
-    # 软件探测回退 (CPU)
     cmd_cpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', '-i', url, '-timeout', '5000000']
     out = subprocess.check_output(cmd_cpu, stderr=subprocess.STDOUT).decode('utf-8')
     return json.loads(out)['streams'][0], "💻"
@@ -98,15 +89,15 @@ def test_single_channel(sub_id, name, url, use_hw):
         speed = round((total_data * 8) / ((time.time() - speed_start) * 1024 * 1024), 2)
         resp.close()
 
-        # 2. 分辨率探测 (智能双模)
-        video, mode_icon = probe_stream(url, use_hw)
+        # 2. 探测
+        video, icon = probe_stream(url, use_hw)
         res_str = f"{video.get('width')}x{video.get('height')}"
         geo = get_ip_info(url)
         
         with log_lock:
             status["success"] += 1
             status["current"] += 1
-            status["logs"].append(f"✅ {name}: {mode_icon}{res_str} | ⏱️{latency}ms | 🚀{speed}Mbps | {geo} | {source_tag}")
+            status["logs"].append(f"✅ {name}: {icon}{res_str} | ⏱️{latency}ms | 🚀{speed}Mbps | {geo} | {source_tag}")
         return {"name": name, "url": url}
     except:
         with log_lock:
@@ -116,7 +107,7 @@ def test_single_channel(sub_id, name, url, use_hw):
 
 def run_task(sub_id):
     config = load_config()
-    sub = next((item for item in config["subscriptions"] if item["id"] == sub_id), None)
+    sub = next((s for s in config["subscriptions"] if s["id"] == sub_id), None)
     if not sub: return
 
     subs_status[sub_id] = {
@@ -125,8 +116,6 @@ def run_task(sub_id):
     }
     
     use_hw = os.getenv("USE_HWACCEL", "false").lower() == "true"
-    
-    # 解析源 (支持 M3U 和 TXT)
     raw_channels = []
     try:
         r = requests.get(sub["url"], timeout=15)
@@ -159,7 +148,6 @@ def run_task(sub_id):
             res = f.result()
             if res: valid_list.append(res)
 
-    # 纯净输出
     m3u_path = os.path.join(OUTPUT_DIR, f"{sub_id}.m3u")
     txt_path = os.path.join(OUTPUT_DIR, f"{sub_id}.txt")
     with open(m3u_path, 'w', encoding='utf-8') as fm, open(txt_path, 'w', encoding='utf-8') as ft:
@@ -171,7 +159,7 @@ def run_task(sub_id):
     subs_status[sub_id]["logs"].append(f"🏁 任务结束，有效源: {len(valid_list)}")
     subs_status[sub_id]["running"] = False
 
-# --- 路由配置 ---
+# --- 路由 ---
 @app.route('/')
 def index(): return render_template('index.html')
 
