@@ -61,29 +61,56 @@ def get_ip_info(url):
     except: return "📍解析失败"
 
 def probe_stream(url, use_hw):
-    accel_type = os.getenv("HW_ACCEL_TYPE", "qsv").lower()
-    device = os.getenv("QSV_DEVICE") or os.getenv("VAAPI_DEVICE") or "/dev/dri/renderD128"
+    """
+    智能探测：针对 VAAPI 优化
+    VAAPI 在处理不规范的 IPTV 网络流时通常比 QSV 具有更好的容错性
+    """
+    accel_type = os.getenv("HW_ACCEL_TYPE", "vaapi").lower()
+    # 优先读取设备变量
+    device = os.getenv("VAAPI_DEVICE") or os.getenv("QSV_DEVICE") or "/dev/dri/renderD128"
+    
     if use_hw:
         try:
-            if accel_type in ["quicksync", "qsv"]:
-                hw_args = ['-hwaccel', 'qsv', '-qsv_device', device, '-hwaccel_output_format', 'qsv']
-                icon = "⚡"
-            else:
-                hw_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device, '-hwaccel_output_format', 'vaapi']
+            if accel_type == "vaapi":
+                # VAAPI 探测参数：Intel UHD 620 推荐参数
+                hw_args = [
+                    '-hwaccel', 'vaapi',
+                    '-hwaccel_device', device,
+                    '-hwaccel_output_format', 'vaapi' # 必须指定输出格式为 vaapi 才能实现真正的全硬解探测
+                ]
                 icon = "💎"
+            else:
+                # QSV 探测参数
+                hw_args = [
+                    '-hwaccel', 'qsv',
+                    '-qsv_device', device,
+                    '-hwaccel_output_format', 'qsv'
+                ]
+                icon = "⚡"
+
+            # 增加 probesize 和 analyzeduration 提高探测成功率
             cmd = ['ffprobe', '-v', 'error', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0',
                    '-probesize', '10000000', '-analyzeduration', '10000000'] + hw_args + ['-i', url]
+            
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=12)
             if result.returncode == 0:
                 data = json.loads(result.stdout)
                 if 'streams' in data and len(data['streams']) > 0:
                     return data['streams'][0], icon
-        except: pass 
+            
+            # 记录失败原因到容器日志
+            if result.stderr:
+                print(f"DEBUG: 硬件加速 ({accel_type}) 探测失败: {result.stderr}")
+        except Exception as e:
+            print(f"DEBUG: 硬件探测异常: {str(e)}")
+
+    # 软件探测回退 (CPU)
     cmd_cpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', '-i', url, '-timeout', '5000000']
     try:
         out = subprocess.check_output(cmd_cpu, stderr=subprocess.STDOUT).decode('utf-8')
         return json.loads(out)['streams'][0], "💻"
-    except: return None, "❌"
+    except:
+        return None, "❌"
 
 def test_single_channel(sub_id, name, url, use_hw):
     status = subs_status[sub_id]
