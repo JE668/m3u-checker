@@ -2,110 +2,321 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>m3u-checker Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>m3u-checker Pro | 极致体验</title>
+    <!-- 引入 Google 字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- 引入 Bootstrap 5 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
     <style>
-        :root { --sidebar-width: 320px; }
-        body { background: #f0f2f5; height: 100vh; overflow: hidden; }
-        .sidebar { width: var(--sidebar-width); background: #fff; border-right: 1px solid #ddd; height: 100vh; overflow-y: auto; position: fixed; left: 0; top: 0; }
-        .main-content { margin-left: var(--sidebar-width); height: 100vh; overflow-y: auto; padding: 25px; }
-        .sub-item { cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: 0.2s; }
-        .sub-item:hover { background: #f8f9fa; }
-        .sub-item.active { background: #e7f1ff; border-left: 4px solid #0d6efd; }
-        .console { background: #1e1e1e; color: #d4d4d4; height: calc(100vh - 350px); overflow-y: auto; font-family: 'Consolas', monospace; font-size: 13px; padding: 15px; border-radius: 8px; box-shadow: inset 0 0 10px #000; }
-        .log-line { margin-bottom: 3px; border-bottom: 1px solid #2d2d2d; padding-bottom: 2px; }
-        .log-success { color: #4ec9b0; }
-        .log-fail { color: #f48771; }
+        :root {
+            --sidebar-bg: #1e293b;
+            --sidebar-active: #3b82f6;
+            --main-bg: #f8fafc;
+            --accent-color: #6366f1;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            --console-bg: #0f172a;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--main-bg);
+            height: 100vh;
+            overflow: hidden;
+            color: #334155;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 320px;
+            background: linear-gradient(180deg, var(--sidebar-bg) 0%, #0f172a 100%);
+            color: #f1f5f9;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-header {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sub-list {
+            padding: 1rem 0.75rem;
+            overflow-y: auto;
+            height: calc(100vh - 180px);
+        }
+
+        .sub-item {
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid transparent;
+            background: rgba(255,255,255,0.03);
+        }
+
+        .sub-item:hover {
+            background: rgba(255,255,255,0.08);
+            transform: translateX(5px);
+        }
+
+        .sub-item.active {
+            background: var(--sidebar-active);
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+            border-color: rgba(255,255,255,0.1);
+        }
+
+        /* 主界面 */
+        .main-content {
+            margin-left: 320px;
+            height: 100vh;
+            overflow-y: auto;
+            padding: 2.5rem;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            border-radius: 16px;
+            padding: 1.25rem;
+            background: #fff;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover { transform: translateY(-5px); }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* 控制台 */
+        .console {
+            background-color: var(--console-bg);
+            color: #e2e8f0;
+            height: calc(100vh - 480px);
+            min-height: 350px;
+            overflow-y: auto;
+            font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+            font-size: 13px;
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid #1e293b;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .log-line {
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            gap: 10px;
+        }
+
+        .log-success { color: #10b981; }
+        .log-fail { color: #f43f5e; }
+        .log-time { color: #64748b; font-size: 11px; width: 65px; flex-shrink: 0; }
+
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .console::-webkit-scrollbar-thumb { background: #334155; }
+
+        .btn-gradient {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            color: white; border: none;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+        .btn-gradient:hover { color: white; opacity: 0.9; transform: scale(1.02); }
+
+        .progress { background-color: #e2e8f0; border-radius: 50px; overflow: hidden; }
+        .progress-bar-glow { box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); }
     </style>
 </head>
 <body>
 
-<!-- 左侧管理栏 -->
+<!-- 侧边栏 -->
 <div class="sidebar">
-    <div class="p-3 bg-primary text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 fw-bold">📺 订阅中心</h5>
-        <button class="btn btn-sm btn-light" onclick="showEditModal()">+</button>
+    <div class="sidebar-header">
+        <h4 class="mb-0 fw-bold d-flex align-items-center">
+            <i class="bi bi-tv-fill me-2 text-info"></i> m3u-checker
+        </h4>
+        <small class="opacity-50">本地自动化检测 Pro</small>
+        <button class="btn btn-sm btn-gradient w-100 mt-4 py-2 rounded-pill" onclick="showEditModal()">
+            <i class="bi bi-plus-circle me-1"></i> 新增订阅源
+        </button>
     </div>
-    <div id="subsList">
-        <!-- 订阅列表 -->
+    <div id="subsList" class="sub-list">
+        <!-- 订阅项 -->
     </div>
 </div>
 
-<!-- 右侧主仪表盘 -->
+<!-- 主界面 -->
 <div class="main-content">
-    <div id="noSelect" class="text-center mt-5 text-muted">
-        <h3>请从左侧选择一个订阅源</h3>
+    <div id="noSelect" class="h-100 d-flex flex-column align-items-center justify-content-center text-center opacity-50">
+        <i class="bi bi-folder2-open display-1 mb-3"></i>
+        <h3>欢迎使用订阅管理中心</h3>
+        <p>请从左侧列表选择一个订阅源进行管理或检测</p>
     </div>
 
-    <div id="dashboard" class="d-none">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+    <div id="dashboard" class="d-none animate__animated animate__fadeIn">
+        <!-- 头部 -->
+        <div class="d-flex justify-content-between align-items-end mb-4">
             <div>
-                <h2 id="viewName" class="fw-bold text-dark mb-1">--</h2>
-                <small id="viewUrl" class="text-muted"></small>
+                <h1 id="viewName" class="fw-bold mb-1">加载中...</h1>
+                <p id="viewUrl" class="text-muted small mb-0"></p>
             </div>
-            <div class="btn-group">
-                <button id="runBtn" class="btn btn-success px-4" onclick="startTask()">执行检测</button>
-                <button id="stopBtn" class="btn btn-danger d-none" onclick="stopTask()">停止任务</button>
-                <button class="btn btn-outline-secondary" onclick="editCurrent()">配置</button>
-            </div>
-        </div>
-
-        <div class="row g-3 mb-4 text-center">
-            <div class="col-md-3"><div class="card p-3 border-0"><div>总频道</div><h3 id="statTotal" class="fw-bold">0</h3></div></div>
-            <div class="col-md-3"><div class="card p-3 border-0"><div>已处理</div><h3 id="statCurrent" class="fw-bold">0</h3></div></div>
-            <div class="col-md-3"><div class="card p-3 border-0 text-success"><div>有效源</div><h3 id="statSuccess" class="fw-bold">0</h3></div></div>
-            <div class="col-md-3"><div class="card p-3 border-0 text-primary"><div>成功率</div><h3 id="statRate" class="fw-bold">0%</h3></div></div>
-        </div>
-
-        <div class="card border-0 mb-4 p-3">
-            <div class="d-flex justify-content-between mb-2 small fw-bold">
-                <span>实时进度</span>
-                <span id="pText">0%</span>
-            </div>
-            <div class="progress" style="height:12px;"><div id="pBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success"></div></div>
-        </div>
-
-        <div class="card border-0 p-3 mb-4">
-            <h6>🔗 结果分发</h6>
-            <div class="input-group">
-                <span class="input-group-text">M3U 订阅</span>
-                <input type="text" id="m3uUrl" class="form-control" readonly>
-                <button class="btn btn-primary" onclick="copyUrl('m3uUrl')">复制</button>
-                <a id="m3uDl" class="btn btn-dark" target="_blank">下载</a>
-            </div>
-            <div class="input-group mt-2">
-                <span class="input-group-text">TXT 格式</span>
-                <input type="text" id="txtUrl" class="form-control" readonly>
-                <button class="btn btn-primary" onclick="copyUrl('txtUrl')">复制</button>
-                <a id="txtDl" class="btn btn-dark" target="_blank">下载</a>
+            <div class="d-flex gap-2">
+                <button id="runBtn" class="btn btn-success rounded-pill px-4 py-2 shadow-sm" onclick="startTask()">
+                    <i class="bi bi-play-fill me-1"></i> 开始检测
+                </button>
+                <button id="stopBtn" class="btn btn-danger rounded-pill px-4 py-2 shadow-sm d-none" onclick="stopTask()">
+                    <i class="bi bi-stop-fill me-1"></i> 停止检测
+                </button>
+                <button class="btn btn-light rounded-circle shadow-sm" onclick="editCurrent()">
+                    <i class="bi bi-gear-fill"></i>
+                </button>
             </div>
         </div>
 
-        <div id="console" class="console"></div>
+        <!-- 统计栏 -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="glass-card stat-card border-0 mb-0">
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-list-ul"></i></div>
+                    <div class="text-muted small">频道总数</div>
+                    <div id="statTotal" class="h3 fw-bold mb-0">0</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="glass-card stat-card border-0 mb-0">
+                    <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-activity"></i></div>
+                    <div class="text-muted small">已处理</div>
+                    <div id="statCurrent" class="h3 fw-bold mb-0">0</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="glass-card stat-card border-0 mb-0">
+                    <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-check-circle-fill"></i></div>
+                    <div class="text-muted small">有效源</div>
+                    <div id="statSuccess" class="h3 fw-bold mb-0">0</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="glass-card stat-card border-0 mb-0">
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-percent"></i></div>
+                    <div class="text-muted small">成功率</div>
+                    <div id="statRate" class="h3 fw-bold mb-0">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进度条 -->
+        <div class="glass-card mb-4 border-0 p-4">
+            <div class="d-flex justify-content-between mb-2">
+                <span class="fw-bold small text-uppercase">当前探测进度</span>
+                <span id="pText" class="badge bg-success rounded-pill">0%</span>
+            </div>
+            <div class="progress" style="height:10px;">
+                <div id="pBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success progress-bar-glow" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- 链接展示 -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <div class="glass-card h-100 mb-0">
+                    <label class="form-label fw-bold small"><i class="bi bi-link-45deg"></i> M3U 订阅地址</label>
+                    <div class="input-group">
+                        <input type="text" id="m3uUrl" class="form-control bg-light border-0" readonly>
+                        <button class="btn btn-dark btn-sm px-3" onclick="copyUrl('m3uUrl')">复制</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-card h-100 mb-0">
+                    <label class="form-label fw-bold small"><i class="bi bi-file-earmark-text"></i> TXT 格式地址</label>
+                    <div class="input-group">
+                        <input type="text" id="txtUrl" class="form-control bg-light border-0" readonly>
+                        <button class="btn btn-dark btn-sm px-3" onclick="copyUrl('txtUrl')">复制</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 终端控制台 -->
+        <div class="console shadow-lg" id="console">
+            <div class="opacity-50">// 等待任务指令...</div>
+        </div>
     </div>
 </div>
 
-<!-- 编辑模态框 -->
+<!-- 弹窗模态框 (样式更新) -->
 <div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header border-0"><h5 class="modal-title fw-bold">配置订阅源</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+            <div class="modal-header border-0 px-4 pt-4">
+                <h5 class="modal-title fw-bold">配置订阅源</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 pb-4">
                 <input type="hidden" id="editId">
-                <div class="mb-3"><label class="form-label">订阅名称</label><input type="text" id="editName" class="form-control"></div>
-                <div class="mb-3"><label class="form-label">订阅链接 (M3U/TXT)</label><input type="text" id="editUrl" class="form-control"></div>
-                <div class="mb-3"><label class="form-label">并发线程 (推荐 5-10)</label><input type="number" id="editThreads" class="form-control" value="5"></div>
                 <div class="mb-3">
-                    <label class="form-label">执行模式</label>
-                    <select id="editMode" class="form-select" onchange="toggleEditFields()">
-                        <option value="none">手动执行</option>
-                        <option value="fixed">方式1: 定时点 (每日 HH:MM)</option>
-                        <option value="interval">方式2: 时间间隔 (小时)</option>
-                    </select>
+                    <label class="form-label small fw-bold text-muted">订阅名称</label>
+                    <input type="text" id="editName" class="form-control form-control-lg bg-light border-0" placeholder="如：我的收藏" style="border-radius: 12px;">
                 </div>
-                <div id="editFixed" class="mb-3 d-none"><input type="text" id="editTimes" class="form-control" placeholder="08:00, 20:00"></div>
-                <div id="editInterval" class="mb-3 d-none"><input type="number" id="editHours" class="form-control" placeholder="12"></div>
-                <div class="d-flex justify-content-between"><button class="btn btn-outline-danger btn-sm" onclick="deleteSub()" id="delBtn">删除该源</button><button class="btn btn-primary" onclick="saveSub()">保存配置</button></div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">订阅链接 (M3U/TXT)</label>
+                    <input type="text" id="editUrl" class="form-control form-control-lg bg-light border-0" placeholder="http://..." style="border-radius: 12px;">
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label small fw-bold text-muted">并发线程</label>
+                        <input type="number" id="editThreads" class="form-control bg-light border-0" value="5" style="border-radius: 12px;">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-bold text-muted">执行模式</label>
+                        <select id="editMode" class="form-select bg-light border-0" onchange="toggleEditFields()" style="border-radius: 12px;">
+                            <option value="none">手动执行</option>
+                            <option value="fixed">定时点</option>
+                            <option value="interval">间隔</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="editFixed" class="mb-3 d-none animate__animated animate__fadeIn">
+                    <label class="form-label small fw-bold text-muted">执行时刻 (HH:MM, 逗号分隔)</label>
+                    <input type="text" id="editTimes" class="form-control bg-light border-0" placeholder="08:00, 20:00" style="border-radius: 12px;">
+                </div>
+                <div id="editInterval" class="mb-3 d-none animate__animated animate__fadeIn">
+                    <label class="form-label small fw-bold text-muted">间隔小时数</label>
+                    <input type="number" id="editHours" class="form-control bg-light border-0" placeholder="12" style="border-radius: 12px;">
+                </div>
+                
+                <div class="d-flex justify-content-between mt-4">
+                    <button class="btn btn-outline-danger border-0" onclick="deleteSub()" id="delBtn">删除源</button>
+                    <button class="btn btn-primary px-5 rounded-pill btn-gradient" onclick="saveSub()">保存配置</button>
+                </div>
             </div>
         </div>
     </div>
@@ -123,9 +334,14 @@
         subs = await res.json();
         const list = document.getElementById('subsList');
         list.innerHTML = subs.map(s => `
-            <div class="sub-item p-3 ${s.id === currentId ? 'active' : ''}" onclick="selectSub('${s.id}')">
-                <div class="fw-bold">${s.name}</div>
-                <div class="small text-muted text-truncate">${s.url}</div>
+            <div class="sub-item ${s.id === currentId ? 'active' : ''}" onclick="selectSub('${s.id}')">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-collection-play me-3 fs-4 opacity-75"></i>
+                    <div class="overflow-hidden">
+                        <div class="fw-bold text-truncate">${s.name}</div>
+                        <div class="small opacity-50 text-truncate" style="font-size: 11px;">${s.id} | ${s.schedule_mode}</div>
+                    </div>
+                </div>
             </div>
         `).join('');
     }
@@ -140,9 +356,7 @@
         
         const base = window.location.origin;
         document.getElementById('m3uUrl').value = `${base}/sub/${id}.m3u`;
-        document.getElementById('m3uDl').href = `/sub/${id}.m3u`;
         document.getElementById('txtUrl').value = `${base}/sub/${id}.txt`;
-        document.getElementById('txtDl').href = `/sub/${id}.txt`;
 
         loadSubs(); 
         if(pollTimer) clearInterval(pollTimer);
@@ -173,11 +387,17 @@
         }
 
         const con = document.getElementById('console');
+        const now = new Date();
+        const timeStr = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0') + ":" + now.getSeconds().toString().padStart(2,'0');
+        
         con.innerHTML = data.logs.map(l => {
             let cls = "";
             if(l.includes('✅')) cls = "log-success";
             if(l.includes('❌')) cls = "log-fail";
-            return `<div class="log-line ${cls}">${l}</div>`;
+            return `<div class="log-line">
+                <span class="log-time">[${timeStr}]</span>
+                <span class="${cls}">${l}</span>
+            </div>`;
         }).join('');
         con.scrollTop = con.scrollHeight;
     }
@@ -225,7 +445,7 @@
     }
 
     async function deleteSub() {
-        if(confirm('确认彻底删除该订阅源吗？')) {
+        if(confirm('⚠️ 确认彻底删除该订阅源吗？不可恢复。')) {
             await fetch('/api/subs/delete/' + currentId);
             modal.hide(); currentId = null; 
             document.getElementById('dashboard').classList.add('d-none');
@@ -238,12 +458,11 @@
     function stopTask() { fetch('/api/stop/' + currentId); }
     function copyUrl(id) {
         const el = document.getElementById(id);
-        el.select(); document.execCommand('copy'); alert('链接已复制到剪贴板');
-    }
-    function toggleEditFields() {
-        const m = document.getElementById('editMode').value;
-        document.getElementById('editFixed').classList.toggle('d-none', m!=='fixed');
-        document.getElementById('editInterval').classList.toggle('d-none', m!=='interval');
+        el.select(); document.execCommand('copy');
+        const btn = event.target;
+        const oldText = btn.innerText;
+        btn.innerText = "已复制";
+        setTimeout(() => btn.innerText = oldText, 2000);
     }
 
     window.onload = loadSubs;
