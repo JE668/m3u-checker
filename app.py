@@ -1,9 +1,13 @@
 import os, subprocess, json, threading, time, socket, datetime, uuid
 import requests
-from flask import Flask, render_template, request, jsonify, send_from_directory, make_response
+import urllib3
+from flask import Flask, render_template, request, jsonify, send_from_directory, make_response, redirect
 from urllib.parse import urlparse
 from apscheduler.schedulers.background import BackgroundScheduler
 from concurrent.futures import ThreadPoolExecutor
+
+# 屏蔽 SSL 安全警告
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 
@@ -13,7 +17,7 @@ OUTPUT_DIR = os.path.join(DATA_DIR, "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 
-# --- 状态记录 ---
+# --- 全局状态 ---
 subs_status = {}
 ip_cache = {}
 api_lock = threading.Lock()
@@ -38,7 +42,7 @@ def get_ip_info(url):
         if ip in ip_cache: return ip_cache[ip]
         with api_lock:
             time.sleep(1.33)
-            res = requests.get(f"http://ip-api.com/json/{ip}?lang=zh-CN", timeout=5).json()
+            res = requests.get(f"http://ip-api.com/json/{ip}?lang=zh-CN", timeout=5, verify=False).json()
             if res.get('status') == 'success':
                 info = f"📍{res.get('city','')} | 🏢{res.get('isp','')}"
                 ip_cache[ip] = info
@@ -47,52 +51,34 @@ def get_ip_info(url):
     except: return "📍解析失败"
 
 def probe_stream(url, use_hw):
-    """
-    智能探测：针对 Intel UHD 620 优化。
-    即使是 QSV 模式，在 ffprobe 阶段使用 vaapi 映射也是最稳的。
-    """
+    """针对 Intel UHD 620 优化的硬件探测逻辑"""
     accel_type = os.getenv("HW_ACCEL_TYPE", "qsv").lower()
     device = os.getenv("QSV_DEVICE") or os.getenv("VAAPI_DEVICE") or "/dev/dri/renderD128"
     
     if use_hw:
         try:
-            # 针对 Intel 显卡的强力 QSV/VAAPI 组合命令
+            # 针对 QSV 的 ffprobe 探测参数，Intel 显卡使用 vaapi 映射探测元数据通常比 qsv 模式更稳
+            # 这里我们尝试使用最全的参数
             if accel_type in ["quicksync", "qsv"]:
-                # QSV 初始化
-                hw_args = [
-                    '-hwaccel', 'qsv',
-                    '-qsv_device', device,
-                    '-hwaccel_output_format', 'qsv'
-                ]
+                hw_args = ['-hwaccel', 'qsv', '-qsv_device', device, '-hwaccel_output_format', 'qsv']
                 icon = "⚡"
             else:
-                # 纯 VAAPI 模式
-                hw_args = [
-                    '-hwaccel', 'vaapi',
-                    '-hwaccel_device', device,
-                    '-hwaccel_output_format', 'vaapi'
-                ]
+                hw_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device, '-hwaccel_output_format', 'vaapi']
                 icon = "💎"
 
-            # 探测命令，增加 probesize 防止网络流头部过长导致探测失败
-            cmd = ['ffprobe', '-v', 'error', '-hide_banner', '-print_format', 'json', 
-                   '-show_streams', '-select_streams', 'v:0',
-                   '-probesize', '5000000', '-analyzeduration', '5000000'] + hw_args + ['-i', url]
+            # 探测命令：增加探测长度以提高硬件识别率
+            cmd = ['ffprobe', '-v', 'error', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0',
+                   '-probesize', '10000000', '-analyzeduration', '10000000'] + hw_args + ['-i', url]
             
-            # 使用 subprocess.run 捕获 stderr 用于调试
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=12)
             if result.returncode == 0:
                 data = json.loads(result.stdout)
                 if 'streams' in data and len(data['streams']) > 0:
                     return data['streams'][0], icon
-            
-            # 如果硬件报错，打印到 Docker 后台日志供查验
-            print(f"DEBUG HW FAILED: {result.stderr}")
-        except Exception as e:
-            print(f"DEBUG HW EXCEPTION: {str(e)}")
+        except:
+            pass 
 
-    # 软件探测回退 (CPU) - 极致兼容性
+    # 软件探测回退 (CPU)
     cmd_cpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', '-i', url, '-timeout', '5000000']
     try:
         out = subprocess.check_output(cmd_cpu, stderr=subprocess.STDOUT).decode('utf-8')
@@ -108,7 +94,6 @@ def test_single_channel(sub_id, name, url, use_hw):
     
     start_time = time.time()
     try:
-        # 1. 连接 & 测速
         resp = requests.get(url, stream=True, timeout=5, verify=False)
         latency = int((time.time() - start_time) * 1000)
         total_data, speed_start = 0, time.time()
@@ -119,7 +104,6 @@ def test_single_channel(sub_id, name, url, use_hw):
         speed = round((total_data * 8) / ((time.time() - speed_start) * 1024 * 1024), 2)
         resp.close()
 
-        # 2. 探测
         video, icon = probe_stream(url, use_hw)
         if not video: raise Exception("Probe failed")
         
@@ -150,7 +134,7 @@ def run_task(sub_id):
     use_hw = os.getenv("USE_HWACCEL", "false").lower() == "true"
     raw_channels = []
     try:
-        r = requests.get(sub["url"], timeout=15)
+        r = requests.get(sub["url"], timeout=15, verify=False)
         r.encoding = r.apparent_encoding
         text = r.text
         if "#EXTINF" in text:
@@ -192,8 +176,18 @@ def run_task(sub_id):
     subs_status[sub_id]["running"] = False
 
 # --- 路由 ---
+
 @app.route('/')
 def index(): return render_template('index.html')
+
+# 解决 404: 兼容旧的订阅链接路径
+@app.route('/live.m3u')
+def legacy_m3u():
+    config = load_config()
+    if config["subscriptions"]:
+        first_id = config["subscriptions"][0]["id"]
+        return redirect(f"/sub/{first_id}.m3u")
+    return "No subscription found", 404
 
 @app.route('/api/subs', methods=['GET', 'POST'])
 def handle_subs():
