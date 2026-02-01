@@ -7,14 +7,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 
-# --- 路径与存储 ---
 DATA_DIR = "/app/data"
 OUTPUT_DIR = os.path.join(DATA_DIR, "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 
-# --- 全局状态记录 ---
-# 存储结构: { sub_id: { running: bool, logs: [], progress: ... } }
+# 存储各订阅源的实时状态
 subs_status = {}
 ip_cache = {}
 api_lock = threading.Lock()
@@ -23,19 +21,16 @@ scheduler = BackgroundScheduler()
 scheduler.start()
 
 def load_config():
-    if not os.path.exists(CONFIG_FILE):
-        return {"subscriptions": []}
+    if not os.path.exists(CONFIG_FILE): return {"subscriptions": []}
     try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except:
-        return {"subscriptions": []}
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f: return json.load(f)
+    except: return {"subscriptions": []}
 
 def save_config(config):
     with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=4, ensure_ascii=False)
 
-def get_ip_info_throttled(url):
+def get_ip_info(url):
     try:
         hostname = urlparse(url).hostname
         ip = socket.gethostbyname(hostname)
@@ -44,19 +39,38 @@ def get_ip_info_throttled(url):
             time.sleep(1.33)
             res = requests.get(f"http://ip-api.com/json/{ip}?lang=zh-CN", timeout=5).json()
             if res.get('status') == 'success':
-                info = f"{res.get('country','')} {res.get('city','')} | {res.get('isp','')}"
+                info = f"📍{res.get('city','')} | 🏢{res.get('isp','')}"
                 ip_cache[ip] = info
                 return info
-        return "未知位置"
-    except: return "解析失败"
+        return "📍未知"
+    except: return "📍解析失败"
+
+def probe_stream(url, use_hw):
+    """智能探测：尝试 GPU，失败则回退 CPU"""
+    # 尝试 GPU 模式
+    if use_hw:
+        try:
+            cmd_gpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', 
+                       '-hwaccel', 'vaapi', '-hwaccel_device', '/dev/dri/renderD128', '-i', url, '-timeout', '5000000']
+            out = subprocess.check_output(cmd_gpu, stderr=subprocess.STDOUT).decode('utf-8')
+            return json.loads(out)['streams'][0], "💎" # 返回结果和硬件标志
+        except:
+            pass # 硬件失败，进入下方软件探测
+
+    # 软件探测 (CPU)
+    cmd_cpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', '-i', url, '-timeout', '5000000']
+    out = subprocess.check_output(cmd_cpu, stderr=subprocess.STDOUT).decode('utf-8')
+    return json.loads(out)['streams'][0], "💻"
 
 def test_single_channel(sub_id, name, url, use_hw):
     status = subs_status[sub_id]
     if status["stop_requested"]: return None
+    parsed = urlparse(url)
+    source_tag = f"🔌{parsed.hostname}:{parsed.port or (443 if parsed.scheme=='https' else 80)}"
     
     start_time = time.time()
     try:
-        # 1. 延迟与测速
+        # 1. 连接 & 测速
         resp = requests.get(url, stream=True, timeout=5, verify=False)
         latency = int((time.time() - start_time) * 1000)
         total_data, speed_start = 0, time.time()
@@ -64,27 +78,23 @@ def test_single_channel(sub_id, name, url, use_hw):
             if status["stop_requested"]: break
             total_data += len(chunk)
             if time.time() - speed_start > 2: break
-        speed_mbps = round((total_data * 8) / ((time.time() - speed_start) * 1024 * 1024), 2)
+        speed = round((total_data * 8) / ((time.time() - speed_start) * 1024 * 1024), 2)
         resp.close()
 
-        # 2. 硬件加速探测
-        hw_args = ['-hwaccel', 'vaapi', '-hwaccel_device', '/dev/dri/renderD128'] if use_hw else []
-        cmd = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0'] + hw_args + ['-i', url, '-timeout', '5000000']
-        result = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
-        video = json.loads(result)['streams'][0]
-        res_str = f"{video.get('width','?')}x{video.get('height','?')}"
-        geo = get_ip_info_throttled(url)
+        # 2. 分辨率探测 (智能双模)
+        video, mode_icon = probe_stream(url, use_hw)
+        res_str = f"{video.get('width')}x{video.get('height')}"
+        geo = get_ip_info(url)
         
-        log_msg = f"✅ {name}: {res_str} | {latency}ms | {speed_mbps}Mbps | {geo}"
         with log_lock:
-            status["logs"].append(log_msg)
-            status["current"] += 1
             status["success"] += 1
-        return {"name": name, "url": url} # 只返回纯净数据
+            status["current"] += 1
+            status["logs"].append(f"✅ {name}: {mode_icon}{res_str} | ⏱️{latency}ms | 🚀{speed}Mbps | {geo} | {source_tag}")
+        return {"name": name, "url": url}
     except:
         with log_lock:
-            status["logs"].append(f"❌ {name}: 连接失败")
             status["current"] += 1
+            status["logs"].append(f"❌ {name}: 连接失败 | {source_tag}")
         return None
 
 def run_task(sub_id):
@@ -99,31 +109,27 @@ def run_task(sub_id):
     
     use_hw = os.getenv("USE_HWACCEL", "false").lower() == "true"
     
-    # 解析源
+    # 解析源 (支持 M3U 和 TXT)
     raw_channels = []
     try:
         r = requests.get(sub["url"], timeout=15)
         r.encoding = r.apparent_encoding
         text = r.text
-        lines = text.split('\n')
         if "#EXTINF" in text:
+            lines = text.split('\n')
             for i, line in enumerate(lines):
                 if "#EXTINF" in line:
                     name = line.split(',')[-1].strip()
                     for j in range(i+1, min(i+5, len(lines))):
                         u = lines[j].strip()
                         if u.startswith("http"):
-                            raw_channels.append((name, u))
-                            break
+                            raw_channels.append((name, u)); break
         else:
-            for line in lines:
+            for line in text.split('\n'):
                 if "," in line and "http" in line:
-                    parts = line.split(',')
-                    if len(parts) >= 2: raw_channels.append((parts[0].strip(), parts[1].strip()))
-    except Exception as e:
-        subs_status[sub_id]["logs"].append(f"⚠️ 解析失败: {str(e)}")
-        subs_status[sub_id]["running"] = False
-        return
+                    p = line.split(',')
+                    if len(p) >= 2: raw_channels.append((p[0].strip(), p[1].strip()))
+    except: pass
 
     raw_channels = list(set(raw_channels))
     subs_status[sub_id]["total"] = len(raw_channels)
@@ -136,21 +142,19 @@ def run_task(sub_id):
             res = f.result()
             if res: valid_list.append(res)
 
-    # 导出文件：修复台标名带测速信息的问题
+    # 纯净输出
     m3u_path = os.path.join(OUTPUT_DIR, f"{sub_id}.m3u")
     txt_path = os.path.join(OUTPUT_DIR, f"{sub_id}.txt")
-    
     with open(m3u_path, 'w', encoding='utf-8') as fm, open(txt_path, 'w', encoding='utf-8') as ft:
         fm.write("#EXTM3U\n")
         for c in valid_list:
-            fm.write(f"#EXTINF:-1,{c['name']}\n{c['url']}\n") # 纯净台标
-            ft.write(f"{c['name']},{c['url']}\n") # 纯净格式
+            fm.write(f"#EXTINF:-1,{c['name']}\n{c['url']}\n")
+            ft.write(f"{c['name']},{c['url']}\n")
             
     subs_status[sub_id]["logs"].append(f"🏁 任务结束，有效源: {len(valid_list)}")
     subs_status[sub_id]["running"] = False
 
-# --- 路由 ---
-
+# --- 路由配置 ---
 @app.route('/')
 def index(): return render_template('index.html')
 
@@ -165,18 +169,13 @@ def handle_subs():
         else:
             for i, s in enumerate(config["subscriptions"]):
                 if s["id"] == new_sub["id"]: config["subscriptions"][i] = new_sub
-        save_config(config)
-        update_global_scheduler()
-        return jsonify({"status": "ok"})
+        save_config(config); update_global_scheduler(); return jsonify({"status": "ok"})
     return jsonify(config["subscriptions"])
 
 @app.route('/api/subs/delete/<sub_id>')
 def delete_sub(sub_id):
-    config = load_config()
-    config["subscriptions"] = [s for s in config["subscriptions"] if s["id"] != sub_id]
-    save_config(config)
-    update_global_scheduler()
-    return jsonify({"status": "ok"})
+    config = load_config(); config["subscriptions"] = [s for s in config["subscriptions"] if s["id"] != sub_id]
+    save_config(config); update_global_scheduler(); return jsonify({"status": "ok"})
 
 @app.route('/api/status/<sub_id>')
 def get_status(sub_id):
@@ -184,33 +183,29 @@ def get_status(sub_id):
 
 @app.route('/api/start/<sub_id>')
 def start_task(sub_id):
-    threading.Thread(target=run_task, args=(sub_id,)).start()
-    return jsonify({"status": "started"})
+    threading.Thread(target=run_task, args=(sub_id,)).start(); return jsonify({"status": "ok"})
 
 @app.route('/api/stop/<sub_id>')
 def stop_task(sub_id):
     if sub_id in subs_status: subs_status[sub_id]["stop_requested"] = True
-    return jsonify({"status": "stopping"})
+    return jsonify({"status": "ok"})
 
 @app.route('/sub/<sub_id>.<ext>')
-def get_subscription_file(sub_id, ext):
-    filename = f"{sub_id}.{ext}"
-    return send_from_directory(OUTPUT_DIR, filename)
+def get_sub_file(sub_id, ext):
+    return send_from_directory(OUTPUT_DIR, f"{sub_id}.{ext}")
 
 def update_global_scheduler():
     scheduler.remove_all_jobs()
     config = load_config()
     for sub in config["subscriptions"]:
-        sid = sub["id"]
-        mode = sub.get("schedule_mode", "none")
+        sid, mode = sub["id"], sub.get("schedule_mode", "none")
         if mode == "fixed":
             for t in sub.get("fixed_times", "").split(','):
                 if ':' in t:
                     h, m = t.strip().split(':')
-                    scheduler.add_job(run_task, 'cron', hour=h, minute=m, args=[sid], id=f"job_{sid}_{t}")
+                    scheduler.add_job(run_task, 'cron', hour=h, minute=m, args=[sid])
         elif mode == "interval":
-            scheduler.add_job(run_task, 'interval', hours=int(sub.get("interval_hours", 12)), args=[sid], id=f"job_{sid}")
+            scheduler.add_job(run_task, 'interval', hours=int(sub.get("interval_hours", 12)), args=[sid])
 
 if __name__ == '__main__':
-    update_global_scheduler()
-    app.run(host='0.0.0.0', port=5123)
+    update_global_scheduler(); app.run(host='0.0.0.0', port=5123)
