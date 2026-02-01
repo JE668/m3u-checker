@@ -47,28 +47,58 @@ def get_ip_info(url):
     except: return "📍解析失败"
 
 def probe_stream(url, use_hw):
-    """智能探测：适配 QuickSync 和 VAAPI"""
-    accel_type = os.getenv("HW_ACCEL_TYPE", "vaapi").lower()
+    """
+    智能探测：针对 Intel UHD 620 优化。
+    即使是 QSV 模式，在 ffprobe 阶段使用 vaapi 映射也是最稳的。
+    """
+    accel_type = os.getenv("HW_ACCEL_TYPE", "qsv").lower()
     device = os.getenv("QSV_DEVICE") or os.getenv("VAAPI_DEVICE") or "/dev/dri/renderD128"
     
     if use_hw:
         try:
+            # 针对 Intel 显卡的强力 QSV/VAAPI 组合命令
             if accel_type in ["quicksync", "qsv"]:
-                hw_args = ['-hwaccel', 'qsv', '-qsv_device', device]
+                # QSV 初始化
+                hw_args = [
+                    '-hwaccel', 'qsv',
+                    '-qsv_device', device,
+                    '-hwaccel_output_format', 'qsv'
+                ]
                 icon = "⚡"
             else:
-                hw_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device, '-hwaccel_output_format', 'vaapi']
+                # 纯 VAAPI 模式
+                hw_args = [
+                    '-hwaccel', 'vaapi',
+                    '-hwaccel_device', device,
+                    '-hwaccel_output_format', 'vaapi'
+                ]
                 icon = "💎"
 
-            cmd = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0'] + hw_args + ['-i', url, '-timeout', '5000000']
-            out = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
-            return json.loads(out)['streams'][0], icon
-        except:
-            pass # 硬件失败回退到 CPU
+            # 探测命令，增加 probesize 防止网络流头部过长导致探测失败
+            cmd = ['ffprobe', '-v', 'error', '-hide_banner', '-print_format', 'json', 
+                   '-show_streams', '-select_streams', 'v:0',
+                   '-probesize', '5000000', '-analyzeduration', '5000000'] + hw_args + ['-i', url]
+            
+            # 使用 subprocess.run 捕获 stderr 用于调试
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                if 'streams' in data and len(data['streams']) > 0:
+                    return data['streams'][0], icon
+            
+            # 如果硬件报错，打印到 Docker 后台日志供查验
+            print(f"DEBUG HW FAILED: {result.stderr}")
+        except Exception as e:
+            print(f"DEBUG HW EXCEPTION: {str(e)}")
 
+    # 软件探测回退 (CPU) - 极致兼容性
     cmd_cpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', '-i', url, '-timeout', '5000000']
-    out = subprocess.check_output(cmd_cpu, stderr=subprocess.STDOUT).decode('utf-8')
-    return json.loads(out)['streams'][0], "💻"
+    try:
+        out = subprocess.check_output(cmd_cpu, stderr=subprocess.STDOUT).decode('utf-8')
+        return json.loads(out)['streams'][0], "💻"
+    except:
+        return None, "❌"
 
 def test_single_channel(sub_id, name, url, use_hw):
     status = subs_status[sub_id]
@@ -91,6 +121,8 @@ def test_single_channel(sub_id, name, url, use_hw):
 
         # 2. 探测
         video, icon = probe_stream(url, use_hw)
+        if not video: raise Exception("Probe failed")
+        
         res_str = f"{video.get('width')}x{video.get('height')}"
         geo = get_ip_info(url)
         
