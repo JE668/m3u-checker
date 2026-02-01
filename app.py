@@ -35,6 +35,16 @@ def save_config(config):
     with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=4, ensure_ascii=False)
 
+def get_source_info(url):
+    """解析 URL 返回 IP:端口"""
+    try:
+        parsed = urlparse(url)
+        host = parsed.hostname
+        port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+        return f"{host}:{port}"
+    except:
+        return "未知接口"
+
 def get_ip_info(url):
     try:
         hostname = urlparse(url).hostname
@@ -51,47 +61,42 @@ def get_ip_info(url):
     except: return "📍解析失败"
 
 def probe_stream(url, use_hw):
-    """针对 Intel UHD 620 优化的硬件探测逻辑"""
     accel_type = os.getenv("HW_ACCEL_TYPE", "qsv").lower()
     device = os.getenv("QSV_DEVICE") or os.getenv("VAAPI_DEVICE") or "/dev/dri/renderD128"
-    
     if use_hw:
         try:
-            # 针对 QSV 的 ffprobe 探测参数，Intel 显卡使用 vaapi 映射探测元数据通常比 qsv 模式更稳
-            # 这里我们尝试使用最全的参数
             if accel_type in ["quicksync", "qsv"]:
                 hw_args = ['-hwaccel', 'qsv', '-qsv_device', device, '-hwaccel_output_format', 'qsv']
                 icon = "⚡"
             else:
                 hw_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device, '-hwaccel_output_format', 'vaapi']
                 icon = "💎"
-
-            # 探测命令：增加探测长度以提高硬件识别率
             cmd = ['ffprobe', '-v', 'error', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0',
                    '-probesize', '10000000', '-analyzeduration', '10000000'] + hw_args + ['-i', url]
-            
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=12)
             if result.returncode == 0:
                 data = json.loads(result.stdout)
                 if 'streams' in data and len(data['streams']) > 0:
                     return data['streams'][0], icon
-        except:
-            pass 
-
-    # 软件探测回退 (CPU)
+        except: pass 
     cmd_cpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', '-i', url, '-timeout', '5000000']
     try:
         out = subprocess.check_output(cmd_cpu, stderr=subprocess.STDOUT).decode('utf-8')
         return json.loads(out)['streams'][0], "💻"
-    except:
-        return None, "❌"
+    except: return None, "❌"
 
 def test_single_channel(sub_id, name, url, use_hw):
     status = subs_status[sub_id]
     if status["stop_requested"]: return None
-    parsed = urlparse(url)
-    source_tag = f"🔌{parsed.hostname}:{parsed.port or (443 if parsed.scheme=='https' else 80)}"
     
+    source_tag = get_source_info(url)
+    
+    # 初始化接口汇总统计
+    with log_lock:
+        if source_tag not in status["summary"]:
+            status["summary"][source_tag] = {"total": 0, "success": 0}
+        status["summary"][source_tag]["total"] += 1
+
     start_time = time.time()
     try:
         resp = requests.get(url, stream=True, timeout=5, verify=False)
@@ -113,12 +118,13 @@ def test_single_channel(sub_id, name, url, use_hw):
         with log_lock:
             status["success"] += 1
             status["current"] += 1
-            status["logs"].append(f"✅ {name}: {icon}{res_str} | ⏱️{latency}ms | 🚀{speed}Mbps | {geo} | {source_tag}")
+            status["summary"][source_tag]["success"] += 1 # 成功计数
+            status["logs"].append(f"✅ {name}: {icon}{res_str} | ⏱️{latency}ms | 🚀{speed}Mbps | {geo} | 🔌{source_tag}")
         return {"name": name, "url": url}
     except:
         with log_lock:
             status["current"] += 1
-            status["logs"].append(f"❌ {name}: 连接失败 | {source_tag}")
+            status["logs"].append(f"❌ {name}: 连接失败 | 🔌{source_tag}")
         return None
 
 def run_task(sub_id):
@@ -128,7 +134,8 @@ def run_task(sub_id):
 
     subs_status[sub_id] = {
         "running": True, "stop_requested": False, "total": 0, "current": 0, "success": 0,
-        "logs": [f"🎬 [{datetime.datetime.now().strftime('%H:%M:%S')}] 任务启动"]
+        "logs": [f"🎬 [{datetime.datetime.now().strftime('%H:%M:%S')}] 任务启动"],
+        "summary": {} # 用于存储 IP:端口 的统计
     }
     
     use_hw = os.getenv("USE_HWACCEL", "false").lower() == "true"
@@ -164,6 +171,22 @@ def run_task(sub_id):
             res = f.result()
             if res: valid_list.append(res)
 
+    # 生成汇总报告
+    status = subs_status[sub_id]
+    status["logs"].append(" ")
+    status["logs"].append("📊 --- 接口探测汇总报告 ---")
+    status["logs"].append(f"{'接口 (IP:端口)':<30} | {'探测数':<6} | {'有效数':<6} | {'有效率'}")
+    status["logs"].append("-" * 65)
+    
+    # 按照有效率从高到低排序显示
+    sorted_summary = sorted(status["summary"].items(), key=lambda x: (x[1]['success']/x[1]['total']), reverse=True)
+    
+    for host, data in sorted_summary:
+        rate = round((data['success'] / data['total']) * 100, 1)
+        status["logs"].append(f"{host:<32} | {data['total']:<8} | {data['success']:<8} | {rate}%")
+    status["logs"].append("-" * 65)
+
+    # 结果保存
     m3u_path = os.path.join(OUTPUT_DIR, f"{sub_id}.m3u")
     txt_path = os.path.join(OUTPUT_DIR, f"{sub_id}.txt")
     with open(m3u_path, 'w', encoding='utf-8') as fm, open(txt_path, 'w', encoding='utf-8') as ft:
@@ -172,21 +195,18 @@ def run_task(sub_id):
             fm.write(f"#EXTINF:-1,{c['name']}\n{c['url']}\n")
             ft.write(f"{c['name']},{c['url']}\n")
             
-    subs_status[sub_id]["logs"].append(f"🏁 任务结束，有效源: {len(valid_list)}")
-    subs_status[sub_id]["running"] = False
+    status["logs"].append(f"🏁 任务结束，有效源: {len(valid_list)}")
+    status["running"] = False
 
-# --- 路由 ---
-
+# --- 路由配置 (保持不变) ---
 @app.route('/')
 def index(): return render_template('index.html')
 
-# 解决 404: 兼容旧的订阅链接路径
 @app.route('/live.m3u')
 def legacy_m3u():
     config = load_config()
     if config["subscriptions"]:
-        first_id = config["subscriptions"][0]["id"]
-        return redirect(f"/sub/{first_id}.m3u")
+        return redirect(f"/sub/{config['subscriptions'][0]['id']}.m3u")
     return "No subscription found", 404
 
 @app.route('/api/subs', methods=['GET', 'POST'])
