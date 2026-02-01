@@ -2,153 +2,143 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>m3u-checker | 本地自动化检测</title>
+    <title>m3u-checker 管理系统</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #f4f7f9; font-family: system-ui; }
-        .card { border: none; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .console { background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; height: 500px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; }
-        .log-line { margin-bottom: 2px; padding: 2px 5px; border-bottom: 1px solid #2d2d2d; }
-        .log-success { color: #4ec9b0; }
-        .log-fail { color: #f48771; }
-        .log-info { color: #569cd6; }
+        body { background: #f8f9fa; }
+        .sub-card { border: none; transition: 0.3s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .sub-card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .console { background: #1e1e1e; color: #d4d4d4; height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 5px; }
+        .log-line { border-bottom: 1px solid #2d2d2d; margin-bottom: 2px; }
     </style>
 </head>
 <body>
 <div class="container py-4">
-    <h3 class="mb-4 text-primary fw-bold">📺 m3u-checker</h3>
-    <div class="row g-4">
-        <div class="col-lg-5">
-            <div class="card mb-4"><div class="card-body">
-                <h6 class="fw-bold">🛠️ 订阅与计划</h6>
-                <textarea id="urlInput" class="form-control mb-3" rows="6" placeholder="粘贴 M3U/TXT 链接，每行一个"></textarea>
-                
-                <label class="form-label small fw-bold">并发线程: <span id="threadVal" class="badge bg-primary">5</span></label>
-                <input type="range" class="form-range" id="threads" min="1" max="20" value="5" oninput="document.getElementById('threadVal').innerText=this.value">
-                
-                <div class="row g-2 mt-2">
-                    <div class="col-6"><select id="scheduleMode" class="form-select form-select-sm" onchange="toggleSched()">
-                        <option value="none">手动</option>
-                        <option value="fixed">定时点</option>
-                        <option value="interval">时间间隔</option>
-                    </select></div>
-                    <div class="col-6">
-                        <input type="text" id="fixedTimes" class="form-control form-select-sm d-none" placeholder="08:00, 20:00">
-                        <input type="number" id="intervalHours" class="form-control form-select-sm d-none" placeholder="间隔小时">
-                    </div>
-                </div>
-                <div class="mt-3 d-grid gap-2">
-                    <button class="btn btn-primary" onclick="save()">💾 保存配置并同步</button>
-                    <div class="btn-group">
-                        <button id="runBtn" class="btn btn-success" onclick="start()">🚀 执行检测</button>
-                        <button id="stopBtn" class="btn btn-danger d-none" onclick="stopTask()">🛑 取消任务</button>
-                    </div>
-                </div>
-                <div class="mt-2 small text-muted">下次自动执行: <span id="nextRun">--</span></div>
-            </div></div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="fw-bold text-primary">📺 m3u-checker 订阅中心</h3>
+        <button class="btn btn-primary" onclick="showEditModal()">➕ 新增订阅</button>
+    </div>
 
-            <div class="card"><div class="card-body">
-                <h6 class="fw-bold">🔗 播放器订阅</h6>
-                <div class="input-group mb-2">
-                    <input type="text" id="subUrl" class="form-control form-control-sm" readonly>
-                    <button class="btn btn-outline-primary btn-sm" onclick="copyUrl()">复制</button>
-                </div>
-                <div class="btn-group w-100">
-                    <a href="/download/iptv.m3u" class="btn btn-sm btn-outline-dark" target="_blank">下载 M3U</a>
-                    <a href="/download/iptv.txt" class="btn btn-sm btn-outline-dark" target="_blank">下载 TXT</a>
-                </div>
-            </div></div>
-        </div>
+    <div id="subsList" class="row g-3">
+        <!-- 动态加载订阅卡片 -->
+    </div>
+</div>
 
-        <div class="col-lg-7">
-            <div class="card"><div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <h6 class="fw-bold">🚀 监控终端</h6>
-                    <span id="badge" class="badge bg-secondary">空闲</span>
+<!-- 编辑模态框 -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">订阅配置</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="editId">
+                <div class="mb-2"><label class="form-label">订阅名称</label><input type="text" id="editName" class="form-control" placeholder="如: 港澳台"></div>
+                <div class="mb-2"><label class="form-label">订阅链接 (M3U/TXT)</label><input type="text" id="editUrl" class="form-control" placeholder="http://..."></div>
+                <div class="mb-2"><label class="form-label">并发线程</label><input type="number" id="editThreads" class="form-control" value="5"></div>
+                <div class="mb-2"><label class="form-label">执行计划</label>
+                    <select id="editMode" class="form-select" onchange="toggleEditFields()">
+                        <option value="none">手动执行</option>
+                        <option value="fixed">固定点 (08:00,20:00)</option>
+                        <option value="interval">时间间隔 (小时)</option>
+                    </select>
                 </div>
-                <div class="row text-center my-3">
-                    <div class="col-4 border-end"><div>总频道</div><b id="total">0</b></div>
-                    <div class="col-4 border-end"><div>已处理</div><b id="current">0</b></div>
-                    <div class="col-4"><div>有效源</div><b id="success" class="text-success">0</b></div>
-                </div>
-                <div class="progress mb-3" style="height:10px;"><div id="pbar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width:0%"></div></div>
-                <div id="console" class="console"></div>
-            </div></div>
+                <div id="editFixed" class="mb-2 d-none"><input type="text" id="editTimes" class="form-control" placeholder="08:00, 20:00"></div>
+                <div id="editInterval" class="mb-2 d-none"><input type="number" id="editHours" class="form-control" placeholder="12"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary" onclick="saveSub()">保存配置</button></div>
         </div>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    function toggleSched() {
-        const m = document.getElementById('scheduleMode').value;
-        document.getElementById('fixedTimes').classList.toggle('d-none', m!=='fixed');
-        document.getElementById('intervalHours').classList.toggle('d-none', m!=='interval');
+    let subs = [];
+    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+
+    function toggleEditFields() {
+        const mode = document.getElementById('editMode').value;
+        document.getElementById('editFixed').classList.toggle('d-none', mode !== 'fixed');
+        document.getElementById('editInterval').classList.toggle('d-none', mode !== 'interval');
     }
-    
-    function copyUrl() { 
-        navigator.clipboard.writeText(document.getElementById('subUrl').value); 
-        alert("订阅链接已复制"); 
+
+    async function loadSubs() {
+        const res = await fetch('/api/subs');
+        subs = await res.json();
+        const list = document.getElementById('subsList');
+        list.innerHTML = subs.map(s => `
+            <div class="col-md-6">
+                <div class="card sub-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <h5 class="fw-bold">${s.name} <small class="text-muted" style="font-size:10px">ID:${s.id}</small></h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="showEditModal('${s.id}')">⚙️</button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteSub('${s.id}')">🗑️</button>
+                            </div>
+                        </div>
+                        <p class="text-truncate small text-muted">${s.url}</p>
+                        <div class="btn-group w-100 mb-3">
+                            <button class="btn btn-sm btn-success" onclick="startTask('${s.id}')">🚀 检测</button>
+                            <button class="btn btn-sm btn-danger d-none" id="stop-${s.id}" onclick="stopTask('${s.id}')">🛑 停止</button>
+                            <a href="/sub/${s.id}.m3u" class="btn btn-sm btn-outline-dark" target="_blank">M3U</a>
+                            <a href="/sub/${s.id}.txt" class="btn btn-sm btn-outline-dark" target="_blank">TXT</a>
+                        </div>
+                        <div class="progress mb-2" style="height:5px"><div id="pbar-${s.id}" class="progress-bar bg-success" style="width:0%"></div></div>
+                        <div id="console-${s.id}" class="console"></div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        subs.forEach(s => pollStatus(s.id));
     }
-    
-    function save() {
+
+    function showEditModal(id) {
+        const s = subs.find(item => item.id === id) || {name:'', url:'', threads:5, schedule_mode:'none', fixed_times:'', interval_hours:12};
+        document.getElementById('editId').value = id || '';
+        document.getElementById('editName').value = s.name;
+        document.getElementById('editUrl').value = s.url;
+        document.getElementById('editThreads').value = s.threads;
+        document.getElementById('editMode').value = s.schedule_mode;
+        document.getElementById('editTimes').value = s.fixed_times;
+        document.getElementById('editHours').value = s.interval_hours;
+        toggleEditFields();
+        modal.show();
+    }
+
+    async function saveSub() {
         const data = {
-            urls: document.getElementById('urlInput').value.split('\n'),
-            threads: document.getElementById('threads').value,
-            schedule_mode: document.getElementById('scheduleMode').value,
-            fixed_times: document.getElementById('fixedTimes').value,
-            interval_hours: document.getElementById('intervalHours').value
+            id: document.getElementById('editId').value,
+            name: document.getElementById('editName').value,
+            url: document.getElementById('editUrl').value,
+            threads: document.getElementById('editThreads').value,
+            schedule_mode: document.getElementById('editMode').value,
+            fixed_times: document.getElementById('editTimes').value,
+            interval_hours: document.getElementById('editHours').value
         };
-        fetch('/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)})
-        .then(r=>r.json()).then(res=>{ alert("设置已生效"); document.getElementById('nextRun').innerText=res.next_run; });
+        await fetch('/api/subs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+        modal.hide();
+        loadSubs();
     }
 
-    function start() { fetch('/start'); }
-    
-    function stopTask() { 
-        if(confirm("确定要取消当前正在进行的检测任务吗？")) {
-            fetch('/stop'); 
-        }
-    }
+    async function deleteSub(id) { if(confirm('确定删除?')) { await fetch('/api/subs/delete/'+id); loadSubs(); } }
+    function startTask(id) { fetch('/api/start/'+id); }
+    function stopTask(id) { fetch('/api/stop/'+id); }
 
-    function refresh() {
-        fetch('/status').then(r=>r.json()).then(data=>{
-            document.getElementById('total').innerText = data.total;
-            document.getElementById('current').innerText = data.current;
-            document.getElementById('success').innerText = data.success;
-            document.getElementById('nextRun').innerText = data.next_run;
-            if(data.total>0) document.getElementById('pbar').style.width = (data.current/data.total*100)+'%';
-            
-            const badge = document.getElementById('badge');
-            const runBtn = document.getElementById('runBtn');
-            const stopBtn = document.getElementById('stopBtn');
+    function pollStatus(id) {
+        setInterval(async () => {
+            const res = await fetch('/api/status/'+id);
+            const data = await res.json();
+            const con = document.getElementById('console-'+id);
+            const pbar = document.getElementById('pbar-'+id);
+            const stopBtn = document.getElementById('stop-'+id);
 
-            if(data.running) {
-                badge.innerText = "正在检测";
-                badge.className = "badge bg-primary";
-                runBtn.classList.add('d-none');
-                stopBtn.classList.remove('d-none');
-            } else {
-                badge.innerText = "空闲";
-                badge.className = "badge bg-secondary";
-                runBtn.classList.remove('d-none');
-                stopBtn.classList.add('d-none');
-            }
-
-            const con = document.getElementById('console');
-            con.innerHTML = data.logs.map(l => {
-                let cls = "log-info";
-                if(l.includes('✅')) cls = "log-success";
-                if(l.includes('❌') || l.includes('🛑')) cls = "log-fail";
-                return `<div class="log-line ${cls}">${l}</div>`;
-            }).join('');
+            if(data.running) stopBtn.classList.remove('d-none'); else stopBtn.classList.add('d-none');
+            if(data.total > 0) pbar.style.width = (data.current/data.total*100)+'%';
+            con.innerHTML = data.logs.slice(-50).map(l => `<div class="log-line">${l}</div>`).join('');
             con.scrollTop = con.scrollHeight;
-        });
+        }, 2000);
     }
 
-    window.onload = () => {
-        document.getElementById('subUrl').value = window.location.origin + "/live.m3u";
-        setInterval(refresh, 2000);
-    };
+    window.onload = loadSubs;
 </script>
 </body>
 </html>
