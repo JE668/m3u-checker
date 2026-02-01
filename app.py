@@ -16,8 +16,13 @@ OUTPUT_TXT = os.path.join(DATA_DIR, "iptv.txt")
 
 # --- 全局变量与锁 ---
 task_status = {
-    "running": False, "total": 0, "current": 0, "success": 0,
-    "logs": [], "next_run": "未设置"
+    "running": False, 
+    "stop_requested": False,
+    "total": 0, 
+    "current": 0, 
+    "success": 0,
+    "logs": [], 
+    "next_run": "未设置"
 }
 
 ip_cache = {}
@@ -26,98 +31,94 @@ log_lock = threading.Lock()
 scheduler = BackgroundScheduler()
 scheduler.start()
 
+def get_source_info(url):
+    """解析 URL 返回 IP:端口 或 域名:端口"""
+    try:
+        parsed = urlparse(url)
+        host = parsed.hostname
+        port = parsed.port
+        if not port:
+            port = 443 if parsed.scheme == 'https' else 80
+        return f"{host}:{port}"
+    except:
+        return "未知接口"
+
 def get_ip_info_throttled(url):
-    """带频率限制和缓存的 IP 查询"""
     try:
         hostname = urlparse(url).hostname
         ip = socket.gethostbyname(hostname)
         if ip in ip_cache: return ip_cache[ip]
-        
         with api_lock:
-            time.sleep(1.33)  # 保护 ip-api.com 的 45次/分钟 限制
+            time.sleep(1.33)
             res = requests.get(f"http://ip-api.com/json/{ip}?lang=zh-CN", timeout=5).json()
             if res.get('status') == 'success':
                 info = f"{res.get('country','')} {res.get('regionName','')} {res.get('city','')} | {res.get('isp','')}"
                 ip_cache[ip] = info
                 return info
-        return "未知位置 | 未知网络"
+        return "未知位置"
     except:
         return "IP解析失败"
 
 def test_single_channel(name, url):
-    """单频道检测：分辨率、延迟、测速"""
+    """单频道检测：包含成功与失败的详细记录"""
     global task_status
+    source_info = get_source_info(url)
+    
+    # 检查是否请求了停止
+    if task_status["stop_requested"]:
+        return None
+
     start_time = time.time()
     try:
-        # 1. 延迟测试 (连接到获取首字节时间)
+        # 1. 延迟测试
         resp = requests.get(url, stream=True, timeout=5, verify=False)
         latency = int((time.time() - start_time) * 1000)
         
-        # 2. 测速 (下载2秒数据)
+        # 2. 测速
         total_data = 0
         speed_start = time.time()
         for chunk in resp.iter_content(chunk_size=1024*128):
+            if task_status["stop_requested"]: break
             total_data += len(chunk)
             if time.time() - speed_start > 2: break
         speed_duration = time.time() - speed_start
         speed_mbps = round((total_data * 8) / (speed_duration * 1024 * 1024), 2)
         resp.close()
 
-        # 3. 分辨率探测 (ffprobe)
+        # 3. 分辨率探测
         cmd = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', '-i', url, '-timeout', '5000000']
         result = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
         video = json.loads(result)['streams'][0]
         res_str = f"{video.get('width','?')}x{video.get('height','?')}"
 
-        # 4. 获取归属地
+        # 4. 归属地
         geo = get_ip_info_throttled(url)
         
-        detail = f"{res_str} | {latency}ms | {speed_mbps}Mbps | {geo}"
+        detail = f"{res_str} | {latency}ms | {speed_mbps}Mbps | {geo} | {source_info}"
         
         with log_lock:
             task_status["success"] += 1
             task_status["current"] += 1
             task_status["logs"].append(f"✅ {name}: {detail}")
         return {"name": name, "url": url, "detail": detail}
-    except:
+
+    except Exception as e:
         with log_lock:
             task_status["current"] += 1
+            task_status["logs"].append(f"❌ {name}: 检测失败 | {source_info}")
         return None
-
-def parse_channels(urls):
-    """从多个源解析频道"""
-    channels = []
-    for sub_url in urls:
-        if not sub_url.strip(): continue
-        try:
-            r = requests.get(sub_url, timeout=10)
-            r.encoding = r.apparent_encoding
-            text = r.text
-            lines = text.split('\n')
-            # M3U 逻辑
-            if "#EXTINF" in text:
-                for i, line in enumerate(lines):
-                    if "#EXTINF" in line:
-                        name = line.split(',')[-1].strip()
-                        for j in range(i+1, min(i+5, len(lines))):
-                            u = lines[j].strip()
-                            if u.startswith("http"):
-                                channels.append((name, u))
-                                break
-            # TXT 逻辑
-            else:
-                for line in lines:
-                    if "," in line and "http" in line:
-                        parts = line.split(',')
-                        if len(parts) >= 2:
-                            channels.append((parts[0].strip(), parts[1].strip()))
-        except: continue
-    return list(set(channels)) # 去重
 
 def run_task():
     global task_status
     if task_status["running"]: return
-    task_status.update({"running": True, "current": 0, "success": 0, "logs": [f"🚀 任务启动: {datetime.datetime.now().strftime('%H:%M:%S')}"]})
+    
+    task_status.update({
+        "running": True, 
+        "stop_requested": False, 
+        "current": 0, 
+        "success": 0, 
+        "logs": [f"🚀 任务启动: {datetime.datetime.now().strftime('%H:%M:%S')}"]
+    })
     
     if not os.path.exists(CONFIG_FILE):
         task_status["running"] = False
@@ -126,9 +127,33 @@ def run_task():
     with open(CONFIG_FILE, 'r') as f:
         config = json.load(f)
     
-    raw_list = parse_channels(config.get("urls", []))
+    # 解析源
+    raw_list = []
+    for sub_url in config.get("urls", []):
+        if not sub_url.strip(): continue
+        try:
+            r = requests.get(sub_url, timeout=10)
+            r.encoding = r.apparent_encoding
+            text = r.text
+            lines = text.split('\n')
+            if "#EXTINF" in text:
+                for i, line in enumerate(lines):
+                    if "#EXTINF" in line:
+                        name = line.split(',')[-1].strip()
+                        for j in range(i+1, min(i+5, len(lines))):
+                            u = lines[j].strip()
+                            if u.startswith("http"):
+                                raw_list.append((name, u))
+                                break
+            else:
+                for line in lines:
+                    if "," in line and "http" in line:
+                        p = line.split(',')
+                        if len(p) >= 2: raw_list.append((p[0].strip(), p[1].strip()))
+        except: continue
+    
+    raw_list = list(set(raw_list))
     task_status["total"] = len(raw_list)
-    task_status["logs"].append(f"📦 解析完成，共 {len(raw_list)} 个待测频道")
 
     valid_results = []
     thread_num = int(config.get("threads", 5))
@@ -136,17 +161,21 @@ def run_task():
     with ThreadPoolExecutor(max_workers=thread_num) as executor:
         futures = [executor.submit(test_single_channel, n, u) for n, u in raw_list]
         for f in futures:
+            if task_status["stop_requested"]:
+                task_status["logs"].append("🛑 任务被手动取消")
+                break
             res = f.result()
             if res: valid_results.append(res)
 
-    # 保存结果
-    with open(OUTPUT_M3U, 'w', encoding='utf-8') as fm, open(OUTPUT_TXT, 'w', encoding='utf-8') as ft:
-        fm.write("#EXTM3U\n")
-        for c in valid_results:
-            fm.write(f"#EXTINF:-1,{c['name']} [{c['detail']}]\n{c['url']}\n")
-            ft.write(f"{c['name']},{c['url']}\n")
+    # 保存
+    if not task_status["stop_requested"]:
+        with open(OUTPUT_M3U, 'w', encoding='utf-8') as fm, open(OUTPUT_TXT, 'w', encoding='utf-8') as ft:
+            fm.write("#EXTM3U\n")
+            for c in valid_results:
+                fm.write(f"#EXTINF:-1,{c['name']} [{c['detail']}]\n{c['url']}\n")
+                ft.write(f"{c['name']},{c['url']}\n")
+        task_status["logs"].append(f"🏁 任务结束，有效源: {len(valid_results)}")
     
-    task_status["logs"].append(f"🏁 任务结束，有效源: {len(valid_results)}")
     task_status["running"] = False
 
 @app.route('/')
@@ -154,6 +183,11 @@ def index(): return render_template('index.html')
 
 @app.route('/status')
 def get_status(): return jsonify(task_status)
+
+@app.route('/stop')
+def stop_task():
+    task_status["stop_requested"] = True
+    return jsonify({"status": "stop_sent"})
 
 @app.route('/live.m3u')
 def sub_url():
