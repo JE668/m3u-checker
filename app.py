@@ -6,19 +6,15 @@ from urllib.parse import urlparse
 from apscheduler.schedulers.background import BackgroundScheduler
 from concurrent.futures import ThreadPoolExecutor
 
-# 屏蔽 SSL 安全警告，保持日志清爽
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 
-# --- 路径与存储配置 ---
 DATA_DIR = "/app/data"
 OUTPUT_DIR = os.path.join(DATA_DIR, "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 
-# --- 全局状态记录 ---
-# subs_status 存储结构: { sub_id: { running, stop_requested, total, current, success, logs, summary } }
 subs_status = {}
 ip_cache = {}
 api_lock = threading.Lock()
@@ -36,18 +32,18 @@ def save_config(config):
     with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=4, ensure_ascii=False)
 
+def get_now():
+    return datetime.datetime.now().strftime('%H:%M:%S')
+
 def get_source_info(url):
-    """解析 URL 返回 IP:端口"""
     try:
         parsed = urlparse(url)
         host = parsed.hostname
         port = parsed.port or (443 if parsed.scheme == 'https' else 80)
         return f"{host}:{port}"
-    except:
-        return "未知接口"
+    except: return "未知接口"
 
 def get_ip_info(url):
-    """带频率限制的地理位置查询"""
     try:
         hostname = urlparse(url).hostname
         ip = socket.gethostbyname(hostname)
@@ -59,64 +55,55 @@ def get_ip_info(url):
                 info = f"📍{res.get('city','')} | 🏢{res.get('isp','')}"
                 ip_cache[ip] = info
                 return info
-        return "📍未知位置"
+        return "📍未知"
     except: return "📍解析失败"
 
 def probe_stream(url, use_hw):
-    """智能探测：尝试 GPU，失败则回退 CPU"""
     accel_type = os.getenv("HW_ACCEL_TYPE", "qsv").lower()
     device = os.getenv("QSV_DEVICE") or os.getenv("VAAPI_DEVICE") or "/dev/dri/renderD128"
     
     if use_hw:
         try:
             if accel_type in ["quicksync", "qsv"]:
-                # QSV 初始化参数
                 hw_args = ['-hwaccel', 'qsv', '-qsv_device', device, '-hwaccel_output_format', 'qsv']
                 icon = "⚡"
             else:
-                # VAAPI 初始化参数
                 hw_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device, '-hwaccel_output_format', 'vaapi']
                 icon = "💎"
-
             cmd = ['ffprobe', '-v', 'error', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0',
-                   '-probesize', '10000000', '-analyzeduration', '10000000'] + hw_args + ['-i', url]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=12)
+                   '-probesize', '5000000', '-analyzeduration', '5000000'] + hw_args + ['-i', url]
+            # 增加强力 timeout=15 确保 Python 层面能杀死挂起的进程
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
             if result.returncode == 0:
                 data = json.loads(result.stdout)
                 if 'streams' in data and len(data['streams']) > 0:
                     return data['streams'][0], icon
-        except:
-            pass 
+        except: pass 
 
-    # 软件探测回退 (CPU)
-    cmd_cpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', '-i', url, '-timeout', '5000000']
+    cmd_cpu = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', '-i', url]
     try:
-        out = subprocess.check_output(cmd_cpu, stderr=subprocess.STDOUT).decode('utf-8')
-        return json.loads(out)['streams'][0], "💻"
-    except:
-        return None, "❌"
+        # CPU 探测也增加强制超时
+        result = subprocess.run(cmd_cpu, capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            return json.loads(result.stdout)['streams'][0], "💻"
+    except: pass
+    return None, "❌"
 
 def test_single_channel(sub_id, name, url, use_hw):
-    """单频道检测核心函数"""
     status = subs_status[sub_id]
     if status["stop_requested"]: return None
-    
     source_tag = get_source_info(url)
     
-    # 初始化接口汇总统计
     with log_lock:
         if source_tag not in status["summary"]:
             status["summary"][source_tag] = {"total": 0, "success": 0}
         status["summary"][source_tag]["total"] += 1
 
-    start_time = time.time()
     try:
-        # 1. 测延迟
-        resp = requests.get(url, stream=True, timeout=5, verify=False)
+        start_time = time.time()
+        resp = requests.get(url, stream=True, timeout=8, verify=False)
         latency = int((time.time() - start_time) * 1000)
         
-        # 2. 测速 (下载2秒数据)
         total_data, speed_start = 0, time.time()
         for chunk in resp.iter_content(chunk_size=128*1024):
             if status["stop_requested"]: 
@@ -127,7 +114,6 @@ def test_single_channel(sub_id, name, url, use_hw):
         speed = round((total_data * 8) / ((time.time() - speed_start) * 1024 * 1024), 2)
         resp.close()
 
-        # 3. 分辨率探测
         video, icon = probe_stream(url, use_hw)
         if not video: raise Exception("Probe failed")
         
@@ -137,35 +123,31 @@ def test_single_channel(sub_id, name, url, use_hw):
         with log_lock:
             if not status["stop_requested"]:
                 status["success"] += 1
-                status["current"] += 1
                 status["summary"][source_tag]["success"] += 1
-                status["logs"].append(f"✅ {name}: {icon}{res_str} | ⏱️{latency}ms | 🚀{speed}Mbps | {geo} | 🔌{source_tag}")
+                status["logs"].append(f"[{get_now()}] ✅ {name}: {icon}{res_str} | ⏱️{latency}ms | 🚀{speed}Mbps | {geo} | 🔌{source_tag}")
         return {"name": name, "url": url}
     except:
         with log_lock:
             if not status["stop_requested"]:
-                status["current"] += 1
-                status["logs"].append(f"❌ {name}: 连接失败 | 🔌{source_tag}")
+                status["logs"].append(f"[{get_now()}] ❌ {name}: 检测失败 | 🔌{source_tag}")
         return None
+    finally:
+        # 无论成功失败，必须增加进度计数
+        with log_lock:
+            status["current"] += 1
 
 def run_task(sub_id):
-    """订阅源检测任务主流程"""
     config = load_config()
     sub = next((s for s in config["subscriptions"] if s["id"] == sub_id), None)
     if not sub: return
-
-    # 状态初始化 & 防重复运行
     if subs_status.get(sub_id, {}).get("running"): return
     
     subs_status[sub_id] = {
         "running": True, "stop_requested": False, "total": 0, "current": 0, "success": 0,
-        "logs": [f"🎬 [{datetime.datetime.now().strftime('%H:%M:%S')}] 任务启动..."],
-        "summary": {}
+        "logs": [f"[{get_now()}] 🎬 任务启动..."], "summary": {}
     }
     
     use_hw = os.getenv("USE_HWACCEL", "false").lower() == "true"
-    
-    # 1. 解析源内容
     raw_channels = []
     try:
         r = requests.get(sub["url"], timeout=15, verify=False)
@@ -185,46 +167,35 @@ def run_task(sub_id):
                 if "," in line and "http" in line:
                     p = line.split(',')
                     if len(p) >= 2: raw_channels.append((p[0].strip(), p[1].strip()))
-    except Exception as e:
-        subs_status[sub_id]["logs"].append(f"❌ 解析源失败: {str(e)}")
-        subs_status[sub_id]["running"] = False
-        return
+    except: pass
 
     raw_channels = list(set(raw_channels))
     subs_status[sub_id]["total"] = len(raw_channels)
     
-    # 2. 多线程检测
     valid_list = []
     thread_num = int(sub.get("threads", 5))
     with ThreadPoolExecutor(max_workers=thread_num) as executor:
         futures = [executor.submit(test_single_channel, sub_id, n, u, use_hw) for n, u in raw_channels]
         for f in futures:
             if subs_status[sub_id]["stop_requested"]:
-                for fut in futures: fut.cancel() # 取消未开始的任务
+                for fut in futures: fut.cancel()
                 break
             try:
-                res = f.result()
+                res = f.result(timeout=20) # 结果获取也增加超时保护
                 if res: valid_list.append(res)
             except: pass
 
-    # 3. 任务结束处理
     status = subs_status[sub_id]
     if status["stop_requested"]:
-        status["logs"].append("🛑 任务已被用户手动强行停止。")
+        status["logs"].append(f"[{get_now()}] 🛑 任务已停止。")
     else:
-        # 生成接口汇总报告
-        status["logs"].append(" ")
-        status["logs"].append("📊 --- 接口探测汇总报告 ---")
-        status["logs"].append(f"{'接口 (IP:端口)':<30} | {'探测数':<6} | {'有效数':<6} | {'有效率'}")
-        status["logs"].append("-" * 65)
-        
+        # 生成汇总报告逻辑
+        status["logs"].append(f"[{get_now()}] 📊 --- 接口汇总报告 ---")
         sorted_summary = sorted(status["summary"].items(), key=lambda x: (x[1]['success']/x[1]['total']), reverse=True)
         for host, data in sorted_summary:
             rate = round((data['success'] / data['total']) * 100, 1)
-            status["logs"].append(f"{host:<32} | {data['total']:<8} | {data['success']:<8} | {rate}%")
-        status["logs"].append("-" * 65)
-
-        # 保存纯净结果
+            status["logs"].append(f"[{get_now()}] {host:<32} | 有效率: {rate}% ({data['success']}/{data['total']})")
+        
         m3u_path = os.path.join(OUTPUT_DIR, f"{sub_id}.m3u")
         txt_path = os.path.join(OUTPUT_DIR, f"{sub_id}.txt")
         with open(m3u_path, 'w', encoding='utf-8') as fm, open(txt_path, 'w', encoding='utf-8') as ft:
@@ -232,11 +203,9 @@ def run_task(sub_id):
             for c in valid_list:
                 fm.write(f"#EXTINF:-1,{c['name']}\n{c['url']}\n")
                 ft.write(f"{c['name']},{c['url']}\n")
-        status["logs"].append(f"🏁 任务正常完成，有效源: {len(valid_list)}")
+        status["logs"].append(f"[{get_now()}] 🏁 任务结束，有效源: {len(valid_list)}")
     
     status["running"] = False
-
-# --- Flask 路由控制 ---
 
 @app.route('/')
 def index(): return render_template('index.html')
@@ -244,9 +213,8 @@ def index(): return render_template('index.html')
 @app.route('/live.m3u')
 def legacy_m3u():
     config = load_config()
-    if config["subscriptions"]:
-        return redirect(f"/sub/{config['subscriptions'][0]['id']}.m3u")
-    return "No subscription found", 404
+    if config["subscriptions"]: return redirect(f"/sub/{config['subscriptions'][0]['id']}.m3u")
+    return "Not found", 404
 
 @app.route('/api/subs', methods=['GET', 'POST'])
 def handle_subs():
@@ -273,9 +241,7 @@ def get_status(sub_id):
 
 @app.route('/api/start/<sub_id>')
 def start_api(sub_id):
-    # 启动前严谨校验
-    if subs_status.get(sub_id, {}).get("running"):
-        return jsonify({"status": "error", "message": "Task already running"})
+    if subs_status.get(sub_id, {}).get("running"): return jsonify({"status": "running"})
     threading.Thread(target=run_task, args=(sub_id,)).start()
     return jsonify({"status": "ok"})
 
