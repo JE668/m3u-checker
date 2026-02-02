@@ -14,9 +14,20 @@ app = Flask(__name__)
 # --- 路径与文件配置 ---
 DATA_DIR = "/app/data"
 OUTPUT_DIR = os.path.join(DATA_DIR, "output")
-MASTER_LOG = os.path.join(DATA_DIR, "log.txt")  # 物理日志文件
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
+MASTER_LOG = os.path.join(DATA_DIR, "log.txt")
+
+# 核心修正：确保启动时文件夹一定存在，否则 Flask 会崩溃
+try:
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR, exist_ok=True)
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+    # 预创建 log 文件，防止权限检测失败
+    if not os.path.exists(MASTER_LOG):
+        with open(MASTER_LOG, "a", encoding="utf-8") as f:
+            f.write(f"--- Log Initialized at {datetime.datetime.now()} ---\n")
+except Exception as e:
+    print(f"CRITICAL ERROR: Cannot create data directory: {e}")
 
 # --- 全局变量 ---
 subs_status = {}
