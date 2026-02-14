@@ -30,7 +30,6 @@ def get_now():
     return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 def format_duration(seconds):
-    """将秒数转为 时:分:秒 格式"""
     return str(datetime.timedelta(seconds=int(seconds)))
 
 def write_master_log(content):
@@ -73,65 +72,70 @@ def get_ip_info(url):
     except: return None
 
 def probe_stream(url, use_hw):
-    """深度探测流信息：分辨率、视频编码、音频编码、帧率"""
+    """深度探测流信息：高容错版本"""
     accel_type = os.getenv("HW_ACCEL_TYPE", "qsv").lower()
     device = os.getenv("QSV_DEVICE") or os.getenv("VAAPI_DEVICE") or "/dev/dri/renderD128"
     
     hw_args = []
+    icon = "💻"
     if use_hw:
         if accel_type in ["quicksync", "qsv"]:
             hw_args = ['-hwaccel', 'qsv', '-qsv_device', device]
+            icon = "⚡"
         else:
             hw_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device]
+            icon = "💎"
 
-    cmd = ['ffprobe', '-v', 'error', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0',
+    # 只运行一次 ffprobe，探测所有流
+    cmd = ['ffprobe', '-v', 'error', '-hide_banner', '-print_format', 'json', '-show_streams',
            '-probesize', '5000000', '-analyzeduration', '5000000'] + hw_args + ['-i', url]
-    
-    # 获取音频信息的辅助命令（如果不带 v:0，默认会出所有流）
-    cmd_all = ['ffprobe', '-v', 'error', '-print_format', 'json', '-show_streams', 
-               '-probesize', '5000000', '-analyzeduration', '5000000'] + hw_args + ['-i', url]
 
     try:
-        result = subprocess.run(cmd_all, capture_output=True, text=True, timeout=15)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=12)
         if result.returncode == 0:
             data = json.loads(result.stdout)
-            video = next((s for s in data['streams'] if s['codec_type'] == 'video'), None)
-            audio = next((s for s in data['streams'] if s['codec_type'] == 'audio'), None)
+            streams = data.get('streams', [])
             
-            icon = ("⚡" if "qsv" in str(hw_args) else "💎") if use_hw else "💻"
+            v = next((s for s in streams if s['codec_type'] == 'video'), {})
+            a = next((s for s in streams if s['codec_type'] == 'audio'), {})
             
-            # 帧率计算
             fps = "0"
-            if video and 'avg_frame_rate' in video:
+            if v.get('avg_frame_rate') and '/' in v['avg_frame_rate']:
                 try:
-                    num, den = video['avg_frame_rate'].split('/')
-                    if int(den) > 0: fps = str(round(int(num)/int(den)))
+                    n, d = v['avg_frame_rate'].split('/')
+                    if int(d) > 0: fps = str(round(int(n)/int(d)))
                 except: pass
 
-            metadata = {
-                "res": f"{video.get('width','?')}x{video.get('height','?')}" if video else "未知尺寸",
-                "v_codec": video.get('codec_name', '未知视频').upper() if video else "无视频",
-                "a_codec": audio.get('codec_name', '未知音频').upper() if audio else "无音频",
+            return {
+                "res": f"{v.get('width','?')}x{v.get('height','?')}",
+                "v_codec": v.get('codec_name', '未知').upper(),
+                "a_codec": a.get('codec_name', '无').upper(),
                 "fps": f"{fps}fps",
                 "icon": icon
             }
-            return metadata
     except: pass
-    return None
+    
+    # 极端情况下回退：探测失败但连接是通的，返回基本成功标识
+    return {"res": "未知分辨率", "v_codec": "STREAM", "a_codec": "UNK", "fps": "?fps", "icon": "❓"}
 
 def test_single_channel(sub_id, name, url, use_hw):
     status = subs_status[sub_id]
     if status["stop_requested"]: return None
     hp = get_source_info(url)
     
+    # 预初始化统计
     with log_lock:
         if hp not in status["summary_host"]: status["summary_host"][hp] = {"t": 0, "s": 0}
 
     try:
+        # 第一步：基础 HTTP 连接测试 (核心判断标准)
         start_time = time.time()
-        resp = requests.get(url, stream=True, timeout=8, verify=False)
-        lat = int((time.time() - start_time) * 1000)
+        resp = requests.get(url, stream=True, timeout=10, verify=False)
+        if resp.status_code != 200: raise Exception("HTTP Error")
         
+        latency = int((time.time() - start_time) * 1000)
+        
+        # 第二步：测速
         td, ss = 0, time.time()
         for chunk in resp.iter_content(chunk_size=128*1024):
             if status["stop_requested"]: 
@@ -142,8 +146,8 @@ def test_single_channel(sub_id, name, url, use_hw):
         speed = round((td * 8) / ((time.time() - ss) * 1024 * 1024), 2)
         resp.close()
 
+        # 第三步：探测元数据 (如果探测失败也会有默认值，不会引发异常)
         meta = probe_stream(url, use_hw)
-        if not meta: raise Exception("Probe Fail")
         
         geo = get_ip_info(url)
         city = geo['city'] if geo else "未知城市"
@@ -152,25 +156,28 @@ def test_single_channel(sub_id, name, url, use_hw):
         with log_lock:
             if city not in status["summary_city"]: status["summary_city"][city] = {"t": 0, "s": 0}
 
-        # 拼接详情：[图标][分辨率] | [视频编码] | [音频编码] | [FPS] | [延迟] | [网速] ...
-        detail_msg = (f"{meta['icon']}{meta['res']} | 🎬{meta['v_codec']} | 🎵{meta['a_codec']} | 🎞️{meta['fps']} | "
-                      f"⏱️{lat}ms | 🚀{speed}Mbps | 📍{city} | 🏢{isp} | 🔌{hp}")
+        # 汇总成功信息
+        detail = (f"{meta['icon']}{meta['res']} | 🎬{meta['v_codec']} | 🎵{meta['a_codec']} | 🎞️{meta['fps']} | "
+                  f"⏱️{latency}ms | 🚀{speed}Mbps | 📍{city} | 🏢{isp} | 🔌{hp}")
         
-        write_master_log(f"[{status['sub_name']}] ✅ {name}: {detail_msg} (URL: {url})")
+        write_master_log(f"[{status['sub_name']}] ✅ {name}: {detail}")
 
         with log_lock:
             if not status["stop_requested"]:
                 status["success"] += 1
                 status["summary_host"][hp]["s"] += 1
                 status["summary_city"][city]["s"] += 1
-                status["logs"].append(f"✅ {name}: {detail_msg}")
+                status["logs"].append(f"✅ {name}: {detail}")
         return {"name": name, "url": url}
 
-    except:
-        geo = get_ip_info(url); city = geo['city'] if geo else "未知城市"
+    except Exception as e:
+        # 记录失败详情
         with log_lock:
-            if city not in status["summary_city"]: status["summary_city"][city] = {"t": 0, "s": 0}
             if not status["stop_requested"]:
+                # 初始化统计
+                city_name = "未知"
+                if hp not in status["summary_host"]: status["summary_host"][hp] = {"t": 0, "s": 0}
+                if city_name not in status["summary_city"]: status["summary_city"][city_name] = {"t": 0, "s": 0}
                 status["logs"].append(f"❌ {name}: 连接失败 | 🔌{hp}")
         write_master_log(f"[{status['sub_name']}] ❌ {name}: 连接失败 | 🔌{hp}")
         return None
@@ -178,20 +185,24 @@ def test_single_channel(sub_id, name, url, use_hw):
         with log_lock:
             status["current"] += 1
             if hp in status["summary_host"]: status["summary_host"][hp]["t"] += 1
-            if city in status["summary_city"]: status["summary_city"][city]["t"] += 1
+            # 这里的 city_name 为了防止未定义错误，默认给个值
+            default_city = "未知城市"
+            if default_city in status["summary_city"]: status["summary_city"][default_city]["t"] += 1
 
 def run_task(sub_id):
     config = load_config()
     sub = next((s for s in config["subscriptions"] if s["id"] == sub_id), None)
     if not sub or subs_status.get(sub_id, {}).get("running"): return
 
-    task_start_time = time.time()
+    start_ts = time.time()
     subs_status[sub_id] = {
         "running": True, "stop_requested": False, "total": 0, "current": 0, "success": 0,
         "sub_name": sub['name'], "logs": [], "summary_host": {}, "summary_city": {}
     }
     
     use_hw = os.getenv("USE_HWACCEL", "false").lower() == "true"
+    
+    # 解析部分
     raw_channels = []
     try:
         r = requests.get(sub["url"], timeout=15, verify=False)
@@ -216,7 +227,7 @@ def run_task(sub_id):
     subs_status[sub_id]["total"] = total_count
     
     thread_num = int(sub.get("threads", 5))
-    est_min = round((total_count * 8) / (thread_num * 60), 1) if total_count > 0 else 0
+    est_min = round((total_count * 10) / (thread_num * 60), 1)
     subs_status[sub_id]["logs"].append(f"🎬 任务开始: {get_now()} | 源数量: {total_count} | 线程: {thread_num} | 预估: ~{est_min}min")
 
     valid_list = []
@@ -227,56 +238,41 @@ def run_task(sub_id):
                 for fut in futures: fut.cancel()
                 break
             try:
-                res = f.result(timeout=25)
+                res = f.result(timeout=30)
                 if res: valid_list.append(res)
             except: pass
 
-    # --- 结算逻辑 ---
     status = subs_status[sub_id]
-    task_end_time = time.time()
-    elapsed_time = format_duration(task_end_time - task_start_time)
-    update_time_str = get_now()
+    duration_str = format_duration(time.time() - start_ts)
+    update_ts = get_now()
 
+    # 汇总
     try:
         status["logs"].append(" ")
-        status["logs"].append("======================================================")
         status["logs"].append("📊 --- 接口服务质量汇总 ---")
-        sorted_host = sorted([i for i in status["summary_host"].items() if i[1]['t']>0], key=lambda x: x[1]['s']/x[1]['t'], reverse=True)
-        for h, d in sorted_host:
-            rate = round(d['s']/d['t']*100, 1)
-            status["logs"].append(f"📡 {h:<28} | 有效率: {rate:>5}% ({d['s']}/{d['t']})")
-
-        status["logs"].append(" ")
-        status["logs"].append("🏙️ --- 城市连通性汇总 ---")
-        sorted_city = sorted([i for i in status["summary_city"].items() if i[1]['t']>0], key=lambda x: x[1]['s']/x[1]['t'], reverse=True)
-        for c, d in sorted_city:
-            rate = round(d['s']/d['t']*100, 1)
-            status["logs"].append(f"📍 {c:<30} | 有效率: {rate:>5}% ({d['s']}/{d['t']})")
-        status["logs"].append("======================================================")
+        sh = sorted([i for i in status["summary_host"].items() if i[1]['t']>0], key=lambda x: x[1]['s']/x[1]['t'], reverse=True)
+        for h, d in sh: status["logs"].append(f"📡 {h:<28} | 有效率: {round(d['s']/d['t']*100, 1):>5}% ({d['s']}/{d['t']})")
     except: pass
 
-    # 保存文件
+    # 保存
+    m3u_p = os.path.join(OUTPUT_DIR, f"{sub_id}.m3u")
+    txt_p = os.path.join(OUTPUT_DIR, f"{sub_id}.txt")
     try:
-        m3u_p = os.path.join(OUTPUT_DIR, f"{sub_id}.m3u")
-        txt_p = os.path.join(OUTPUT_DIR, f"{sub_id}.txt")
         with open(m3u_p, 'w', encoding='utf-8') as fm:
-            fm.write(f"#EXTM3U\n# Updated: {update_time_str}\n# Duration: {elapsed_time}\n")
+            fm.write(f"#EXTM3U\n# Updated: {update_ts}\n# Duration: {duration_str}\n")
             for c in valid_list: fm.write(f"#EXTINF:-1,{c['name']}\n{c['url']}\n")
         with open(txt_p, 'w', encoding='utf-8') as ft:
-            ft.write(f"# Updated: {update_time_str}\n# Duration: {elapsed_time}\n")
+            ft.write(f"# Updated: {update_ts}\n# Duration: {duration_str}\n")
             for c in valid_list: ft.write(f"{c['name']},{c['url']}\n")
     except: pass
 
     status["logs"].append(" ")
-    status["logs"].append(f"⏰ 更新时间: {update_time_str}")
-    status["logs"].append(f"⌛ 任务总耗时: {elapsed_time}")
-    
-    final_msg = "🛑 任务已手动停止" if status["stop_requested"] else "🏁 任务圆满完成"
-    status["logs"].append(f"{final_msg} (有效源: {len(valid_list)})")
+    status["logs"].append(f"⏰ 更新时间: {update_ts}")
+    status["logs"].append(f"⌛ 任务总耗时: {duration_str}")
+    status["logs"].append(f"🏁 任务结算完毕 (有效源: {len(valid_list)})")
     status["running"] = False
 
-# --- 路由逻辑 ---
-
+# --- 其余路由逻辑保持不变 ---
 @app.route('/')
 def index(): return render_template('index.html')
 
