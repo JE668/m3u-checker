@@ -1,4 +1,4 @@
-import os, subprocess, json, threading, time, socket, datetime, uuid, csv, re
+import os, subprocess, json, threading, time, socket, datetime, uuid, csv
 import requests, urllib3, psutil
 from flask import Flask, render_template, request, jsonify, send_from_directory, make_response, redirect
 from urllib.parse import urlparse
@@ -57,11 +57,9 @@ def probe_stream(url, use_hw):
                 a = next((s for s in streams if s['codec_type'] == 'audio'), {})
                 fmt = data.get('format', {})
                 rb = fmt.get('bit_rate') or v.get('bit_rate') or "0"
-                fps = "?"
+                fps = "0"
                 if v.get('avg_frame_rate') and '/' in v['avg_frame_rate']:
-                    try: 
-                        n, d = v['avg_frame_rate'].split('/')
-                        fps = str(round(int(n)/int(d))) if int(d)>0 else "?"
+                    try: n, d = v['avg_frame_rate'].split('/'); fps = str(round(int(n)/int(d))) if int(d)>0 else "0"
                     except: pass
                 return {"res": f"{v.get('width','?')}x{v.get('height','?')}", "h": v.get('height', 0), "v_codec": v.get('codec_name', 'UNK').upper(), "a_codec": a.get('codec_name', 'UNK').upper(), "fps": fps, "br": f"{round(int(rb)/1024/1024, 2)}Mbps", "icon": icon}
         except: pass
@@ -76,15 +74,15 @@ def test_single_channel(sub_id, name, url, use_hw):
     status = subs_status[sub_id]
     if status["stop_requested"]: return None
     parsed = urlparse(url); hp = f"{parsed.hostname}:{parsed.port or (443 if parsed.scheme=='https' else 80)}"
-    
-    if hp in status["blacklisted_hosts"]:
+    if hp in status.get("blacklisted_hosts", set()): 
         with log_lock: status["analytics"]["stability"]["banned"] += 1
         return None
-
+    
     with log_lock:
         if hp not in status["summary_host"]: status["summary_host"][hp] = {"t": 0, "s": 0, "f": 0}
         if hp not in status["consecutive_failures"]: status["consecutive_failures"][hp] = 0
 
+    city, isp = "未知城市", "未知网络"
     try:
         start_time = time.time()
         resp = requests.get(url, stream=True, timeout=8, verify=False, headers={'User-Agent': 'Mozilla/5.0'})
@@ -101,44 +99,50 @@ def test_single_channel(sub_id, name, url, use_hw):
         meta = probe_stream(url, use_hw)
         if not meta: raise Exception("ProbeFail")
         
-        geo = requests.get(f"http://ip-api.com/json/{socket.gethostbyname(parsed.hostname)}?lang=zh-CN", timeout=5).json() if hp not in ip_cache else ip_cache[hp]
-        city = geo.get('city', '未知') if isinstance(geo, dict) else "未知"
+        geo = get_ip_info_throttled(parsed.hostname)
+        city = geo['city'] if geo else "未知城市"; isp = geo['isp'] if geo else "未知网络"
         
         with log_lock:
-            status["consecutive_failures"][hp] = 0; status["success"] += 1
-            status["summary_host"][hp]["s"] += 1
+            status["consecutive_failures"][hp] = 0; status["success"] += 1; status["summary_host"][hp]["s"] += 1
             if city not in status["summary_city"]: status["summary_city"][city] = {"t": 0, "s": 0}
             status["summary_city"][city]["s"] += 1
             
-            h = int(meta['h']); r_tag = "8K" if h>=4320 else "4K" if h>=2160 else "1080P" if h>=1080 else "720P" if h>=720 else "SD"
-            status["analytics"]["res"][r_tag] = status["analytics"]["res"].get(r_tag, 0) + 1
+            h = int(meta['h']); res_tag = "8k" if h>=4320 else "4k" if h>=2160 else "1080p" if h>=1080 else "720p" if h>=720 else "sd"
+            status["analytics"]["res"][res_tag.upper()] = status["analytics"]["res"].get(res_tag.upper(), 0) + 1
             status["analytics"]["lat"]["<100ms" if latency<100 else "<500ms" if latency<500 else ">500ms"] += 1
             vc = meta['v_codec']; status["analytics"]["codec"][vc] = status["analytics"]["codec"].get(vc, 0) + 1
             status["analytics"]["stability"]["success"] += 1
-
-            detail = f"{meta['icon']}{meta['res']} | 🎬{meta['v_codec']} | 🎵{meta['a_codec']} | 🎞️{meta['fps']} | 📊{speed}Mbps | ⏱️{latency}ms | 📍{city}"
-            status["logs"].append(f"✅ {name}: {detail}")
-            write_log_csv({"时间": get_now(), "任务": status['sub_name'], "状态": "成功", "频道": name, "分辨率": meta['res'], "视频编码": meta['v_codec'], "音频编码": meta['a_codec'], "FPS": meta['fps'], "延迟(ms)": latency, "网速(Mbps)": speed, "地区": city, "运营商": geo.get('isp','未知'), "URL": url})
+            
+            msg = f"✅ {name}: {meta['icon']}{meta['res']} | 🎬{meta['v_codec']} | 🎵{meta['a_codec']} | 🎞️{meta['fps']}fps | 📊{speed}Mbps | ⏱️{latency}ms | 📍{city} | 🌐{hp}"
+            status["logs"].append(msg)
+            write_log_csv({"时间": get_now(), "任务": status['sub_name'], "状态": "成功", "频道": name, "分辨率": meta['res'], "视频编码": meta['v_codec'], "音频编码": meta['a_codec'], "FPS": meta['fps'], "延迟(ms)": latency, "网速(Mbps)": speed, "地区": city, "运营商": isp, "URL": url})
         
-        # 质量评分公式
-        score = h + speed*10 - latency/10
-        return {"name": name, "url": url, "score": score, "res_tag": r_tag.lower()}
+        return {"name": name, "url": url, "score": h + speed*5 - latency/10, "res_tag": res_tag}
     except Exception as e:
         with log_lock:
             status["consecutive_failures"][hp] += 1; status["summary_host"][hp]["f"] += 1
             status["analytics"]["stability"]["fail"] += 1
             if status["consecutive_failures"][hp] >= 10:
                 if hp not in status["blacklisted_hosts"]: 
-                    status["blacklisted_hosts"].add(hp)
-                    status["logs"].append(f"⚠️ 熔断激活: 接口 {hp} 已连续失败10次，已封禁。")
+                    status["blacklisted_hosts"].add(hp); status["logs"].append(f"⚠️ 熔断激活: 接口 {hp} 已连续失败10次，后续跳过。")
             if not status["stop_requested"]: status["logs"].append(f"❌ {name}: 失败({str(e)}) | 🔌{hp}")
+            write_log_csv({"时间": get_now(), "任务": status['sub_name'], "状态": "失败", "频道": name, "URL": url})
         return None
     finally:
-        with log_lock: 
-            status["current"] += 1; status["summary_host"][hp]["t"] += 1
-            ck = city if 'city' in locals() else "未知城市"
-            if ck not in status["summary_city"]: status["summary_city"][ck] = {"t": 0, "s": 0}
-            status["summary_city"][ck]["t"] += 1
+        with log_lock: status["current"] += 1; status["summary_host"][hp]["t"] += 1; ck = city; status["summary_city"][ck] = status["summary_city"].get(ck, {"t": 0, "s": 0}); status["summary_city"][ck]["t"] += 1
+
+def get_ip_info_throttled(hostname):
+    try:
+        ip = socket.gethostbyname(hostname)
+        if ip in ip_cache: return ip_cache[ip]
+        with api_lock:
+            time.sleep(1.35)
+            res = requests.get(f"http://ip-api.com/json/{ip}?lang=zh-CN", timeout=5, verify=False).json()
+            if res.get('status') == 'success':
+                info = {"city": res.get('city', '未知'), "isp": res.get('isp', '未知')}
+                ip_cache[ip] = info; return info
+    except: pass
+    return None
 
 def run_task(sub_id):
     config = load_config(); sub = next((s for s in config["subscriptions"] if s["id"] == sub_id), None)
@@ -150,44 +154,22 @@ def run_task(sub_id):
     raw_channels = []
     try:
         r = requests.get(sub["url"], timeout=15, verify=False); r.encoding = r.apparent_encoding
+        cn = "未知频道"
         for line in r.text.split('\n'):
             line = line.strip()
-            if "#EXTINF" in line: name = line.split(',')[-1].strip()
-            elif line.startswith("http"): raw_channels.append((name, line))
-            elif "," in line and "http" in line:
-                p = line.split(','); raw_channels.append((p[0].strip(), p[1].strip()))
+            if "#EXTINF" in line: cn = line.split(',')[-1].strip()
+            elif line.startswith("http"): raw_channels.append((cn, line))
     except: pass
-    raw_channels = list(set(raw_channels)); subs_status[sub_id]["total"] = len(raw_channels)
-    thread_num = int(sub.get("threads", 10))
-    subs_status[sub_id]["logs"].append(f"🚀 任务启动 | 总数: {len(raw_channels)} | 线程: {thread_num} | 硬件加速: {'ON' if use_hw else 'OFF'}")
     
-    valid_raw = []
-    with ThreadPoolExecutor(max_workers=thread_num) as executor:
+    raw_channels = list(set(raw_channels)); subs_status[sub_id]["total"] = len(raw_channels)
+    with ThreadPoolExecutor(max_workers=int(sub.get("threads", 10))) as executor:
         futures = [executor.submit(test_single_channel, sub_id, n, u, use_hw) for n, u in raw_channels]
-        for f in futures:
-            if subs_status[sub_id]["stop_requested"]:
-                for fut in futures: fut.cancel(); break
-            try:
-                res = f.result(timeout=50); 
-                if res: valid_raw.append(res)
-            except: pass
+        valid_raw = [f.result() for f in futures if not subs_status[sub_id]["stop_requested"] and f.result()]
 
-    # 结果过滤与结算
     valid_list = [c for c in valid_raw if c['res_tag'] in res_filter]; valid_list.sort(key=lambda x: x['score'], reverse=True)
     status = subs_status[sub_id]; duration = format_duration(time.time() - start_ts); update_ts = get_now()
     
-    # 物理文件保存
-    try:
-        m3u_p = os.path.join(OUTPUT_DIR, f"{sub_id}.m3u"); txt_p = os.path.join(OUTPUT_DIR, f"{sub_id}.txt")
-        epg = config["settings"]["epg_url"]; logo = config["settings"]["logo_base"]
-        with open(m3u_p, 'w', encoding='utf-8') as fm:
-            fm.write(f"#EXTM3U x-tvg-url=\"{epg}\"\n# Updated: {update_ts}\n# Duration: {duration}\n")
-            for c in valid_list: fm.write(f"#EXTINF:-1 tvg-logo=\"{logo}{c['name']}.png\",{c['name']}\n{c['url']}\n")
-        with open(txt_p, 'w', encoding='utf-8') as ft:
-            ft.write(f"# Updated: {update_ts}\n"); [ft.write(f"{c['name']},{c['url']}\n") for c in valid_list]
-    except: pass
-
-    # 生成多维汇总报告
+    # 物理报告
     status["logs"].append(" "); status["logs"].append("📜 ==================== 探测结算报告 ====================")
     status["logs"].append(f"⏱️ 任务总耗时: {duration} | 有效源: {len(valid_list)} / 成功探测: {status['success']}")
     status["logs"].append("🏙️ --- 地区连通性汇总 ---")
@@ -200,8 +182,21 @@ def run_task(sub_id):
         status["logs"].append("🚫 --- 已熔断的接口清单 ---")
         for bh in status["blacklisted_hosts"]: status["logs"].append(f"❌ {bh} (已跳过后续链接)")
     status["logs"].append("======================================================")
+
+    # 核心：即使 0 个源，也强制生成一次文件以确保路径正常
+    try:
+        m3u_p = os.path.join(OUTPUT_DIR, f"{sub_id}.m3u"); txt_p = os.path.join(OUTPUT_DIR, f"{sub_id}.txt")
+        epg = config["settings"]["epg_url"]; logo = config["settings"]["logo_base"]
+        with open(m3u_p, 'w', encoding='utf-8') as fm:
+            fm.write(f"#EXTM3U x-tvg-url=\"{epg}\"\n# Updated: {update_ts}\n# Count: {len(valid_list)}\n")
+            for c in valid_list: fm.write(f"#EXTINF:-1 tvg-logo=\"{logo}{c['name']}.png\",{c['name']}\n{c['url']}\n")
+        with open(txt_p, 'w', encoding='utf-8') as ft:
+            ft.write(f"# Updated: {update_ts}\n"); [ft.write(f"{c['name']},{c['url']}\n") for c in valid_list]
+    except Exception as e: print(f"File Save Error: {e}")
+    
     status["logs"].append(f"⏰ 更新时间: {update_ts} | 🏁 任务结束"); status["running"] = False
 
+# --- 其余路由逻辑保持不变 ---
 @app.route('/')
 def index(): return render_template('index.html')
 @app.route('/api/sys_info')
@@ -246,5 +241,4 @@ def delete_sub(sub_id): config = load_config(); config["subscriptions"] = [s for
 def get_sub_file(sub_id, ext): return send_from_directory(OUTPUT_DIR, f"{sub_id}.{ext}")
 
 if __name__ == '__main__':
-    update_global_scheduler = scheduler # 占位
     app.run(host='0.0.0.0', port=5123)
