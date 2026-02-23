@@ -11,7 +11,7 @@
 ## ✨ 核心特性
 
 - **🚀 工业级探测引擎**：支持多线程并发（1-20+），内置 `ffprobe` 深度分析及 `ffmpeg` 网络重连协议，确保探测结果 100% 真实。
-- **📊 智能质量评分 (Ranking)**：独家评分算法：$Score = 高度 + (实测码率 \times 10) - (延迟 \div 10)$。自动将画质最好、速度最快的源排在订阅文件首位。
+- **📊 智能质量评分 (Ranking)**：独家评分算法：Score = 高度 + (实测码率*10) - (延迟 \10)。自动将画质最好、速度最快的源排在订阅文件首位。
 - **📈 实时可视化分析 (Analytics)**：
   - **画质占比**：4K/1080P/720P 分布统计。
   - **连通稳定性**：成功、失败及熔断比例饼图。
@@ -36,7 +36,7 @@
 version: '3.8'
 services:
   m3u-checker:
-    image: ghcr.nju.edu.cn/你的用户名/m3u-checker:latest
+    image: ghcr.nju.edu.cn/je668/m3u-checker:latest
     container_name: m3u-checker
     restart: always
     network_mode: host # 推荐使用 host 模式以获得最佳网络探测精度
