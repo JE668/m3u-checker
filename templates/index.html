@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>m3u-checker Pro | Analytics Center</title>
+    <title>m3u-checker Pro | Dashboard</title>
     <!-- 引入高级字体、图标、动画库及可视化引擎 -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -18,6 +18,7 @@
             --success-grad: linear-gradient(135deg, #059669 0%, #10b981 100%);
             --danger-grad: linear-gradient(135deg, #dc2626 0%, #f43f5e 100%);
             --warning-grad: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+            --info-grad: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
             --glass: rgba(255, 255, 255, 0.72);
         }
 
@@ -46,14 +47,14 @@
         .sub-disabled { opacity: 0.4; filter: grayscale(1); }
 
         /* 主面板布局 */
-        .main { margin-left: 320px; padding: 30px; height: 100vh; overflow-y: auto; }
+        .main { margin-left: 320px; padding: 40px; height: 100vh; overflow-y: auto; }
         .glass-card { 
             background: var(--glass); backdrop-filter: blur(20px); border-radius: 24px; 
             border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 15px 35px rgba(0,0,0,0.04); 
             transition: 0.3s; margin-bottom: 25px; position: relative; overflow: hidden;
         }
 
-        /* 渐变按钮修复版 */
+        /* 渐变按钮修正版 */
         .btn-grad { 
             border: none !important; color: #ffffff !important; border-radius: 16px; 
             font-weight: 700; padding: 12px 28px; transition: 0.3s; 
@@ -65,7 +66,7 @@
         .btn-success-grad { background: var(--success-grad) !important; }
         .btn-danger-grad { background: var(--danger-grad) !important; }
         .btn-warning-grad { background: var(--warning-grad) !important; }
-        .btn-primary-grad { background: var(--primary-grad) !important; }
+        .btn-info-grad { background: var(--info-grad) !important; }
 
         .btn-outline-danger-custom {
             background: transparent; color: #dc2626 !important; border: 2px solid #dc2626 !important;
@@ -73,7 +74,7 @@
         }
         .btn-outline-danger-custom:hover { background: #dc2626; color: white !important; transform: translateY(-3px); }
 
-        /* 统计数字卡片与背景图标 */
+        /* 统计数字卡片 */
         .stat-card { padding: 30px; text-align: center; border: none; }
         .stat-card i { 
             font-size: 4.5rem; opacity: 0.08; position: absolute; 
@@ -86,11 +87,10 @@
         .progress-bar { 
             background: var(--success-grad); background-size: 200% 100%;
             border-radius: 50px; animation: shimmer 2s linear infinite;
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
         }
         @keyframes shimmer { 0% { background-position: 100% 0%; } 100% { background-position: -100% 0%; } }
 
-        /* 智能终端日志 */
+        /* 控制台日志 */
         .console-wrapper { position: relative; margin-top: 20px; }
         .console { 
             background: #0f172a; color: #f1f5f9; height: 500px; 
@@ -101,7 +101,6 @@
         .log-success { color: #4ade80; background: rgba(74, 222, 128, 0.05); }
         .log-fail { color: #f87171; background: rgba(248, 113, 113, 0.05); }
         
-        /* 智能滚动标签 */
         .scroll-tag { 
             position: absolute; bottom: 25px; right: 40px; background: rgba(59, 130, 246, 0.9); 
             color: white; padding: 8px 18px; border-radius: 50px; font-size: 11px; 
@@ -109,13 +108,6 @@
         }
         .scroll-tag.show { opacity: 1; }
 
-        /* 系统设置入口 */
-        .settings-entry { 
-            position: fixed; top: 30px; right: 30px; font-size: 1.8rem; cursor: pointer; 
-            color: #64748b; transition: 0.3s; z-index: 1000; 
-        }
-        .settings-entry:hover { color: #3b82f6; transform: rotate(45deg); }
-        
         .hw-console { 
             background: #000; color: #0f0; font-family: 'Courier New', monospace; 
             font-size: 11px; padding: 15px; border-radius: 12px; height: 180px; overflow-y: auto; 
@@ -126,9 +118,6 @@
     </style>
 </head>
 <body>
-
-<!-- 右上角全局设置按钮 -->
-<div class="settings-entry" onclick="showSettings()"><i class="bi bi-gear-fill"></i></div>
 
 <div class="sidebar">
     <div class="sidebar-header">
@@ -141,33 +130,39 @@
 </div>
 
 <div class="main">
+    <!-- 未选择状态提示 -->
     <div id="noSelect" class="h-100 d-flex flex-column align-items-center justify-content-center opacity-25">
         <i class="bi bi-layers display-1 mb-3"></i>
         <h2 class="fw-800">Analytics Dashboard</h2>
-        <p>选择一个订阅，开启可视化探测与测速大屏</p>
+        <p>选择一个订阅源，开启可视化测速与探测</p>
     </div>
 
+    <!-- 仪表盘主体 -->
     <div id="dashboard" class="d-none animate__animated animate__fadeIn">
-        <!-- 头部 -->
+        <!-- 头部按钮操作区 -->
         <div class="d-flex justify-content-between align-items-center mb-5">
             <div>
                 <h1 id="viewName" class="fw-800 mb-0">--</h1>
                 <span id="viewUrl" class="badge bg-white text-primary border shadow-sm mt-2 p-2 px-3"></span>
             </div>
             <div class="d-flex gap-3">
-                <button id="runBtn" class="btn btn-grad btn-success-grad shadow-lg" onclick="startTask()">
+                <button id="runBtn" class="btn btn-grad btn-success-grad" onclick="startTask()">
                     <i class="bi bi-play-circle-fill"></i> 立即执行
                 </button>
-                <button id="stopBtn" class="btn btn-grad btn-danger-grad shadow-lg d-none" onclick="stopTask()">
+                <button id="stopBtn" class="btn btn-grad btn-danger-grad d-none" onclick="stopTask()">
                     <i class="bi bi-stop-circle-fill"></i> 停止检测
                 </button>
-                <button class="btn btn-grad btn-warning-grad shadow" onclick="editCurrent()">
+                <button class="btn btn-grad btn-warning-grad" onclick="editCurrent()">
                     <i class="bi bi-sliders"></i> 配置
+                </button>
+                <!-- 原齿轮位置改为正式按钮 -->
+                <button class="btn btn-grad btn-info-grad" onclick="showSettings()">
+                    <i class="bi bi-gear-fill"></i> 全局设置
                 </button>
             </div>
         </div>
 
-        <!-- 统计核心 -->
+        <!-- 统计矩阵 -->
         <div class="row g-4 mb-4">
             <div class="col-md-3"><div class="glass-card stat-card"><i class="bi bi-collection"></i><div class="text-muted small fw-bold">频道总数</div><div id="statTotal" class="stat-value">0</div></div></div>
             <div class="col-md-3"><div class="glass-card stat-card text-info"><i class="bi bi-lightning-charge"></i><div class="text-muted small fw-bold">已处理</div><div id="statCurrent" class="stat-value">0</div></div></div>
@@ -175,11 +170,11 @@
             <div class="col-md-3"><div class="glass-card stat-card text-primary"><i class="bi bi-graph-up-arrow"></i><div class="text-muted small fw-bold">成功率</div><div id="statRate" class="stat-value">0%</div></div></div>
         </div>
 
-        <!-- 进度条、链接与大屏分布 -->
+        <!-- 可视化大屏分布 -->
         <div class="row">
             <div class="col-lg-6">
                 <div class="glass-card p-4 h-100 mb-0">
-                    <div class="d-flex justify-content-between small fw-800 mb-2"><span>探测实时进度</span><span id="pText" class="text-primary">0%</span></div>
+                    <div class="d-flex justify-content-between small fw-800 mb-2"><span>探测进度</span><span id="pText" class="text-primary">0%</span></div>
                     <div class="progress mb-4"><div id="pBar" class="progress-bar progress-bar-striped"></div></div>
                     <label class="form-label fw-bold small text-muted text-uppercase">M3U 订阅地址</label>
                     <div class="input-group mb-3 shadow-sm"><input type="text" id="m3uUrl" class="form-control border-0 bg-light rounded-start-4" readonly><button class="btn btn-dark rounded-end-4" onclick="copy('m3uUrl')">复制</button></div>
@@ -189,13 +184,13 @@
             </div>
             <div class="col-lg-3">
                 <div class="glass-card h-100 mb-0 text-center">
-                    <h6 class="fw-bold mb-3 small text-muted text-uppercase">画质占比分析</h6>
+                    <h6 class="fw-bold mb-3 small text-muted text-uppercase">画质分布分析</h6>
                     <div style="height: 220px; position: relative;"><canvas id="resChart"></canvas></div>
                 </div>
             </div>
             <div class="col-lg-3">
                 <div class="glass-card h-100 mb-0 text-center">
-                    <h6 class="fw-bold mb-3 small text-muted text-uppercase">连接延迟分布</h6>
+                    <h6 class="fw-bold mb-3 small text-muted text-uppercase">延迟区间分布</h6>
                     <div style="height: 220px; position: relative;"><canvas id="latChart"></canvas></div>
                 </div>
             </div>
@@ -209,23 +204,23 @@
     </div>
 </div>
 
-<!-- 弹窗：任务配置 -->
+<!-- 弹窗 A: 订阅配置 -->
 <div class="modal fade" id="editModal" data-bs-backdrop="static" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0" style="border-radius:30px;">
-            <div class="modal-header border-0 bg-light px-4 py-3"><h5 class="modal-title fw-800 text-dark">任务参数配置</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header border-0 bg-light px-4 py-3"><h5 class="modal-title fw-800 text-dark">订阅任务配置</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body p-4">
                 <input type="hidden" id="editId">
-                <div class="mb-4"><label class="form-label small fw-bold text-muted">订阅名称</label><input type="text" id="editName" class="form-control form-control-lg bg-light border-0" style="border-radius:15px;"></div>
-                <div class="mb-4"><label class="form-label small fw-bold text-muted">订阅链接 (M3U/TXT URL)</label><input type="text" id="editUrl" class="form-control form-control-lg bg-light border-0" style="border-radius:15px;"></div>
+                <div class="mb-4"><label class="form-label small fw-bold text-muted">任务名称</label><input type="text" id="editName" class="form-control form-control-lg bg-light border-0" style="border-radius:15px;"></div>
+                <div class="mb-4"><label class="form-label small fw-bold text-muted">订阅链接 (URL)</label><input type="text" id="editUrl" class="form-control form-control-lg bg-light border-0" style="border-radius:15px;"></div>
                 <div class="row g-3 mb-4">
                     <div class="col-6"><label class="form-label small fw-bold text-muted">并发线程</label><input type="number" id="editThreads" class="form-control form-control-lg bg-light border-0" value="10" style="border-radius:15px;"></div>
-                    <div class="col-6"><label class="form-label small fw-bold text-muted">计划模式</label><select id="editMode" class="form-select form-select-lg bg-light border-0" onchange="toggleFields()" style="border-radius:15px;"><option value="none">手动执行</option><option value="fixed">定时执行</option><option value="interval">间隔循环</option></select></div>
+                    <div class="col-6"><label class="form-label small fw-bold text-muted">执行计划</label><select id="editMode" class="form-select form-select-lg bg-light border-0" onchange="toggleFields()" style="border-radius:15px;"><option value="none">手动</option><option value="fixed">定时</option><option value="interval">间隔</option></select></div>
                 </div>
-                <div id="ef" class="mb-4 d-none animate__animated animate__fadeIn"><label class="form-label small fw-bold text-muted">定时时刻 (HH:MM，逗号分隔)</label><input type="text" id="editTimes" class="form-control form-control-lg bg-light border-0" style="border-radius:15px;"></div>
-                <div id="ei" class="mb-4 d-none animate__animated animate__fadeIn"><label class="form-label small fw-bold text-muted">间隔小时数</label><input type="number" id="editHours" class="form-control form-control-lg bg-light border-0" style="border-radius:15px;"></div>
-                <div class="d-flex align-items-center justify-content-between mb-4 bg-light p-3 rounded-4 shadow-sm">
-                    <label class="form-label fw-bold mb-0">是否启用此检测任务</label>
+                <div id="ef" class="mb-4 d-none"><label class="form-label small fw-bold text-muted">时刻 (HH:MM)</label><input type="text" id="editTimes" class="form-control form-control-lg bg-light border-0" style="border-radius:15px;"></div>
+                <div id="ei" class="mb-4 d-none"><label class="form-label small fw-bold text-muted">小时数</label><input type="number" id="editHours" class="form-control form-control-lg bg-light border-0" style="border-radius:15px;"></div>
+                <div class="d-flex align-items-center justify-content-between mb-4 bg-light p-3 rounded-4">
+                    <label class="form-label fw-bold mb-0">是否启用此订阅检测</label>
                     <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="editEnabled" checked style="width: 45px; height: 22px; cursor:pointer;"></div>
                 </div>
                 <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
@@ -237,20 +232,20 @@
     </div>
 </div>
 
-<!-- 弹窗：全局系统设置 -->
+<!-- 弹窗 B: 全局设置与硬件诊断 -->
 <div class="modal fade" id="settingsModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0" style="border-radius:30px;">
             <div class="modal-header border-0 bg-light px-4 py-3"><h5 class="modal-title fw-800 text-dark">系统全局配置</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body p-4">
                 <div class="d-flex align-items-center justify-content-between mb-4 bg-primary bg-opacity-10 p-4 rounded-4">
-                    <div><h6 class="fw-bold mb-1">GPU 硬件加速 (VAAPI/QSV)</h6><p class="small text-muted mb-0">提升 4K/HEVC 源探测效率并降低 CPU 占用</p></div>
+                    <div><h6 class="fw-bold mb-1">GPU 硬件加速探测</h6><p class="small text-muted mb-0">降低 CPU 压力，提升 4K/HEVC 兼容性</p></div>
                     <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="globalHwAccel" checked style="width: 50px; height: 25px; cursor:pointer;"></div>
                 </div>
                 <h6 class="fw-bold mb-3"><i class="bi bi-shield-check-fill text-success"></i> 硬件加速环境诊断</h6>
                 <div class="hw-console mb-3" id="hwOutput">等待驱动扫描...</div>
-                <button class="btn btn-dark w-100 rounded-3 py-2" onclick="testHardware()"><i class="bi bi-search me-2"></i> 运行 vainfo 诊断</button>
-                <button class="btn btn-grad btn-primary-grad w-100 mt-5 py-3 shadow-lg" onclick="saveGlobalSettings()">保存全局配置</button>
+                <button class="btn btn-dark w-100 rounded-3 py-2 mb-4 shadow-sm" onclick="testHardware()"><i class="bi bi-search me-2"></i> 运行 vainfo 诊断</button>
+                <button class="btn btn-grad btn-primary-grad w-100 py-3 shadow-lg" onclick="saveGlobalSettings()"><i class="bi bi-check-circle-fill"></i> 保存系统配置</button>
             </div>
         </div>
     </div>
@@ -302,7 +297,7 @@
                 </div>
             `).join('');
             document.getElementById('globalHwAccel').checked = data.settings.use_hwaccel;
-        } catch (e) { console.error(e); }
+        } catch (e) {}
     }
 
     function selectSub(id) {
@@ -329,7 +324,8 @@
             document.getElementById('statTotal').innerText = data.total || 0;
             document.getElementById('statCurrent').innerText = data.current || 0;
             document.getElementById('statSuccess').innerText = data.success || 0;
-            document.getElementById('statRate').innerText = (data.current > 0 ? Math.round(data.success/data.current*100) : 0) + '%';
+            const rate = data.current > 0 ? Math.round(data.success/data.current*100) : 0;
+            document.getElementById('statRate').innerText = rate + '%';
             const p = data.total > 0 ? Math.round(data.current/data.total*100) : 0;
             document.getElementById('pBar').style.width = p + '%';
             document.getElementById('pText').innerText = p + '%';
@@ -377,16 +373,18 @@
         const h = document.getElementById('globalHwAccel').checked;
         await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({use_hwaccel: h}) });
         settingsModal.hide();
-        alert('全局设置已保存');
+        alert('系统设置已同步，下次检测将生效');
     }
 
     async function testHardware() {
         const out = document.getElementById('hwOutput');
-        out.innerHTML = "正在调用宿主机硬件驱动接口...";
-        const res = await fetch('/api/hw_test');
-        const data = await res.json();
-        out.innerText = data.output;
-        out.style.color = data.status === "success" ? "#4ade80" : "#f87171";
+        out.innerHTML = "📡 正在扫描宿主机 GPU 驱动环境...";
+        try {
+            const res = await fetch('/api/hw_test');
+            const data = await res.json();
+            out.innerText = data.output;
+            out.style.color = data.status === "success" ? "#4ade80" : "#f87171";
+        } catch (e) { out.innerText = "Error: " + e; }
     }
 
     async function saveSub() {
@@ -396,14 +394,21 @@
     }
 
     async function deleteSub() {
-        if(confirm('确定彻底移除该订阅吗？')) {
+        if(confirm('⚠️ 确认彻底删除？')) {
             await fetch('/api/subs/delete/' + currentId); editModal.hide(); currentId = null;
             document.getElementById('dashboard').classList.add('d-none'); document.getElementById('noSelect').classList.remove('d-none');
             loadSubs();
         }
     }
 
-    function startTask() { if(currentId) fetch('/api/start/' + currentId); autoScroll = true; }
+    async function startTask() {
+        if(!currentId) return;
+        autoScroll = true;
+        const res = await fetch('/api/start/' + currentId);
+        const d = await res.json();
+        if(d.status === 'error') alert('❌ 启动失败：' + d.message);
+    }
+
     function stopTask() { if(currentId) fetch('/api/stop/' + currentId); }
     function copy(id) { const el = document.getElementById(id); el.select(); document.execCommand('copy'); const btn = event.target; const old = btn.innerText; btn.innerText = "COPIED"; setTimeout(() => btn.innerText = old, 1500); }
 
