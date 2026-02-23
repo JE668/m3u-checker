@@ -11,13 +11,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 
-# --- 路径配置 ---
+# --- 路径与文件配置 ---
 DATA_DIR = "/app/data"
 OUTPUT_DIR = os.path.join(DATA_DIR, "output")
 MASTER_LOG = os.path.join(DATA_DIR, "log.txt")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 
+# --- 全局状态 ---
 subs_status = {}
 ip_cache = {}
 api_lock = threading.Lock()
@@ -52,8 +53,8 @@ def save_config(config):
 def get_source_info(url):
     try:
         parsed = urlparse(url)
-        port = parsed.port or (443 if parsed.scheme == 'https' else 80)
-        return f"{parsed.hostname}:{port}"
+        p = parsed.port or (443 if parsed.scheme == 'https' else 80)
+        return f"{parsed.hostname}:{p}"
     except: return "未知接口"
 
 def get_ip_info(url):
@@ -65,7 +66,7 @@ def get_ip_info(url):
             time.sleep(1.35)
             res = requests.get(f"http://ip-api.com/json/{ip}?lang=zh-CN", timeout=5, verify=False).json()
             if res.get('status') == 'success':
-                info = {"city": res.get('city', '未知城市'), "isp": res.get('isp', '未知运营商')}
+                info = {"city": res.get('city', '未知城市'), "isp": res.get('isp', '未知网络')}
                 ip_cache[ip] = info
                 return info
         return None
@@ -73,58 +74,54 @@ def get_ip_info(url):
 
 def probe_stream(url, use_hw):
     """
-    深度探测元数据：解决 ffprobe 针对网络流不稳定的核心逻辑
+    采用您提供的、已被验证可用的 ffprobe 参数结构。
     """
     accel_type = os.getenv("HW_ACCEL_TYPE", "qsv").lower()
     device = os.getenv("QSV_DEVICE") or os.getenv("VAAPI_DEVICE") or "/dev/dri/renderD128"
     
-    # 终极 ffprobe 参数组合：模拟 UA + 强制重连协议 + 深度探测
-    # -reconnect 及其相关参数是解决网络流探测失败的关键
-    base_args = [
+    # 核心参数：严格遵守您提供的成功版本逻辑
+    base_cmd = [
         'ffprobe', '-v', 'error', 
         '-show_format', '-show_streams', 
         '-print_format', 'json',
-        '-user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        '-reconnect', '1', '-reconnect_at_eof', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '2',
-        '-probesize', '5000000', # 5MB 探测
-        '-analyzeduration', '5000000', 
-        '-timeout', '12000000' # 12秒超时
+        '-probesize', '5000000', 
+        '-analyzeduration', '5000000'
     ]
-
+    
     hw_args = []
     icon = "💻"
     if use_hw:
-        if accel_type in ["quicksync", "qsv"]:
+        if accel_type in ["qsv", "quicksync"]:
             hw_args = ['-hwaccel', 'qsv', '-qsv_device', device]
             icon = "⚡"
         else:
             hw_args = ['-hwaccel', 'vaapi', '-hwaccel_device', device]
             icon = "💎"
 
-    cmd = base_args + hw_args + ['-i', url]
+    cmd = base_cmd + hw_args + ['-i', url]
 
     try:
-        # 增加 Python 层面的进程超时控制
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=18)
+        # Python 强制超时 15 秒，防止进程挂起
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
         if result.returncode == 0:
             data = json.loads(result.stdout)
             streams = data.get('streams', [])
             fmt = data.get('format', {})
             
-            v = next((s for s in streams if s['codec_type'] == 'video'), {})
-            a = next((s for s in streams if s['codec_type'] == 'audio'), {})
+            v = next((s for s in streams if s.get('codec_type') == 'video'), {})
+            a = next((s for s in streams if s.get('codec_type') == 'audio'), {})
             
-            # 计算帧率
-            fps = "0"
+            # FPS 提取
+            fps = "?"
             if v.get('avg_frame_rate') and '/' in v['avg_frame_rate']:
                 try:
                     n, d = v['avg_frame_rate'].split('/')
                     if int(d) > 0: fps = str(round(int(n)/int(d)))
                 except: pass
 
-            # 获取码率
-            raw_br = fmt.get('bit_rate') or v.get('bit_rate')
-            br = f"{round(int(raw_br)/1024/1024, 2)}Mbps" if raw_br and str(raw_br).isdigit() else "unk"
+            # 码率提取
+            rb = fmt.get('bit_rate') or v.get('bit_rate')
+            br = f"{round(int(rb)/1024/1024, 2)}Mbps" if rb and str(rb).isdigit() else "UNK"
 
             return {
                 "res": f"{v.get('width','?')}x{v.get('height','?')}",
@@ -142,18 +139,18 @@ def test_single_channel(sub_id, name, url, use_hw):
     if status["stop_requested"]: return None
     hp = get_source_info(url)
     
+    # 熔断黑名单预检
     if hp in status.get("blacklisted_hosts", set()): return None
 
     with log_lock:
-        if hp not in status["summary_host"]: 
-            status["summary_host"][hp] = {"t": 0, "s": 0, "f": 0}
-            status["consecutive_failures"][hp] = 0 
+        if hp not in status["summary_host"]: status["summary_host"][hp] = {"t": 0, "s": 0, "f": 0}
+        if hp not in status["consecutive_failures"]: status["consecutive_failures"][hp] = 0
 
     try:
-        # 第一步：HTTP 初步握手
+        # 第一步：测延迟 (基础 HTTP 连接)
         start_time = time.time()
-        resp = requests.get(url, stream=True, timeout=10, verify=False, headers={'User-Agent': 'Mozilla/5.0'})
-        if resp.status_code != 200: raise Exception("HttpFail")
+        resp = requests.get(url, stream=True, timeout=8, verify=False, headers={'User-Agent': 'Mozilla/5.0'})
+        if resp.status_code != 200: raise Exception("Status Error")
         
         latency = int((time.time() - start_time) * 1000)
         
@@ -168,19 +165,19 @@ def test_single_channel(sub_id, name, url, use_hw):
         speed = round((td * 8) / ((time.time() - ss) * 1024 * 1024), 2)
         resp.close()
 
-        # 第三步：ffprobe 深度元数据校验 (作为最终成功判定标准)
+        # 第三步：调用 ffprobe 验证 (必须拿到元数据才叫 ✅)
         meta = probe_stream(url, use_hw)
-        if not meta: raise Exception("ffprobe Metadata Fail") # 严格判定：拿不到元数据就算失败
+        if not meta: raise Exception("ffprobe Metadata Fail")
         
         geo = get_ip_info(url)
         city = geo['city'] if geo else "未知城市"
         isp = geo['isp'] if geo else "未知网络"
         
         with log_lock:
-            # 成功则清零该 Host 的连续失败计数
+            # 探测成功，重置熔断计数器
             status["consecutive_failures"][hp] = 0
-            
             if city not in status["summary_city"]: status["summary_city"][city] = {"t": 0, "s": 0}
+            
             if not status["stop_requested"]:
                 status["success"] += 1
                 status["summary_host"][hp]["s"] += 1
@@ -190,16 +187,16 @@ def test_single_channel(sub_id, name, url, use_hw):
                           f"🎞️{meta['fps']} | 📊{meta['br']} | ⏱️{latency}ms | 🚀{speed}Mbps | 📍{city} | 🔌{hp}")
                 
                 status["logs"].append(f"✅ {name}: {detail}")
-                write_master_log(f"[{status['sub_name']}] ✅ {name}: {detail} ({url})")
+                write_master_log(f"[{status['sub_name']}] ✅ {name}: {detail} (URL: {url})")
         return {"name": name, "url": url}
 
     except Exception as e:
         with log_lock:
-            # 增加连续失败计数
+            # 失败逻辑：增加连续失败计数
             status["consecutive_failures"][hp] = status.get("consecutive_failures", {}).get(hp, 0) + 1
             if hp in status["summary_host"]: status["summary_host"][hp]["f"] += 1
             
-            # 触发连续熔断
+            # 触发连续熔断 (10次)
             if status["consecutive_failures"][hp] >= 10:
                 if hp not in status["blacklisted_hosts"]:
                     status["blacklisted_hosts"].add(hp)
@@ -207,7 +204,7 @@ def test_single_channel(sub_id, name, url, use_hw):
 
             if not status["stop_requested"]:
                 status["logs"].append(f"❌ {name}: 探测失败({str(e)}) | 🔌{hp}")
-                write_master_log(f"[{status['sub_name']}] ❌ {name}: 探测失败({str(e)}) | 🔌{hp}")
+                write_master_log(f"[{status['sub_name']}] ❌ {name}: 失败({str(e)}) | 🔌{hp} (URL: {url})")
         return None
     finally:
         with log_lock:
@@ -218,8 +215,8 @@ def run_task(sub_id):
     config = load_config()
     sub = next((s for s in config["subscriptions"] if s["id"] == sub_id), None)
     if not sub or subs_status.get(sub_id, {}).get("running") or not sub.get("enabled", True): return
-    
-    start_ts = time.time()
+
+    task_start_ts = time.time()
     subs_status[sub_id] = {
         "running": True, "stop_requested": False, "total": 0, "current": 0, "success": 0,
         "sub_name": sub['name'], "logs": [], "summary_host": {}, "summary_city": {},
@@ -245,13 +242,13 @@ def run_task(sub_id):
                     p = line.split(',')
                     if len(p)>=2: raw_channels.append((p[0].strip(), p[1].strip()))
     except: pass
-    
+
     raw_channels = list(set(raw_channels))
     subs_status[sub_id]["total"] = len(raw_channels)
     thread_num = int(sub.get("threads", 5))
-    est_min = round((len(raw_channels) * 11) / (thread_num * 60), 1)
+    est_min = round((len(raw_channels) * 10) / (thread_num * 60), 1)
     subs_status[sub_id]["logs"].append(f"🎬 任务开始: {get_now()} | 源数量: {len(raw_channels)} | 线程: {thread_num} | 预估: ~{est_min}min")
-    
+
     valid_list = []
     with ThreadPoolExecutor(max_workers=thread_num) as executor:
         futures = [executor.submit(test_single_channel, sub_id, n, u, use_hw) for n, u in raw_channels]
@@ -260,27 +257,29 @@ def run_task(sub_id):
                 for fut in futures: fut.cancel()
                 break
             try:
-                res = f.result(timeout=40) # 考虑到 reconnect，单线程超时放宽到 40s
+                res = f.result(timeout=40)
                 if res: valid_list.append(res)
             except: pass
 
+    # --- 结算汇总 ---
     status = subs_status[sub_id]
-    duration_str = format_duration(time.time() - start_ts)
+    duration_str = format_duration(time.time() - task_start_ts)
     update_ts = get_now()
-    
+
     try:
         status["logs"].append(" ")
         status["logs"].append("======================================================")
         status["logs"].append("📊 --- 接口服务质量汇总 ---")
         sh = sorted([i for i in status["summary_host"].items() if i[1]['t']>0], key=lambda x: x[1]['s']/x[1]['t'], reverse=True)
-        for h, d in sh: status["logs"].append(f"📡 {h:<28} | 有效率: {round(d['s']/d['t']*100, 1)}% ({d['s']}/{d['t']})")
+        for h, d in sh: status["logs"].append(f"📡 {h:<28} | 有效率: {round(d['s']/d['t']*100, 1):>5}% ({d['s']}/{d['t']})")
         status["logs"].append(" ")
-        status["logs"].append("🏙️ --- 城市/区域连通性汇总 ---")
+        status["logs"].append("🏙️ --- 城市连通性汇总 ---")
         sc = sorted([i for i in status["summary_city"].items() if i[1]['t']>0], key=lambda x: x[1]['s']/x[1]['t'], reverse=True)
-        for c, d in sc: status["logs"].append(f"📍 {c:<30} | 有效率: {round(d['s']/d['t']*100, 1)}% ({d['s']}/{d['t']})")
+        for c, d in sc: status["logs"].append(f"📍 {c:<30} | 有效率: {round(d['s']/d['t']*100, 1):>5}% ({d['s']}/{d['t']})")
         status["logs"].append("======================================================")
     except: pass
 
+    # 保存文件
     try:
         m3u_p = os.path.join(OUTPUT_DIR, f"{sub_id}.m3u")
         txt_p = os.path.join(OUTPUT_DIR, f"{sub_id}.txt")
@@ -291,10 +290,12 @@ def run_task(sub_id):
             ft.write(f"# Updated: {update_ts}\n# Duration: {duration_str}\n")
             for c in valid_list: ft.write(f"{c['name']},{c['url']}\n")
     except: pass
-    
+
     status["logs"].append(f"⏰ 更新时间: {update_ts} | ⌛ 总耗时: {duration_str}")
     status["logs"].append(f"🏁 结算完毕 (有效源: {len(valid_list)})")
     status["running"] = False
+
+# --- 路由逻辑 ---
 
 @app.route('/')
 def index(): return render_template('index.html')
@@ -320,8 +321,15 @@ def delete_sub(sub_id):
 
 @app.route('/api/status/<sub_id>')
 def get_status(sub_id):
+    # 手动过滤字段，防止 set 类型的 blacklisted_hosts 导致 JSON 序列化报错
     info = subs_status.get(sub_id, {"running": False, "logs": [], "total":0, "current":0, "success":0})
-    return jsonify({"running": info.get("running", False), "logs": info.get("logs", []), "total": info.get("total", 0), "current": info.get("current", 0), "success": info.get("success", 0)})
+    return jsonify({
+        "running": info.get("running", False),
+        "logs": info.get("logs", []),
+        "total": info.get("total", 0),
+        "current": info.get("current", 0),
+        "success": info.get("success", 0)
+    })
 
 @app.route('/api/start/<sub_id>')
 def start_api(sub_id):
