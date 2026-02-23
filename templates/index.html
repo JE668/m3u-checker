@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>m3u-checker Pro | Dashboard</title>
+    <title>m3u-checker Pro | Pro Dashboard</title>
+    <!-- 引入高级字体、图标与动画库 -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -15,36 +16,52 @@
             --primary-grad: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
             --success-grad: linear-gradient(90deg, #10b981 0%, #34d399 50%, #10b981 100%);
             --danger-grad: linear-gradient(90deg, #dc2626 0%, #f43f5e 100%);
+            --info-grad: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
             --glass: rgba(255, 255, 255, 0.85);
         }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; height: 100vh; overflow: hidden; color: #1e293b; }
-        .sidebar { width: 320px; background: var(--sidebar-grad); height: 100vh; position: fixed; color: white; z-index: 100; box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
-        .sidebar-header { padding: 30px 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .sub-list { height: calc(100vh - 300px); overflow-y: auto; padding: 10px 0; }
-        .sub-item { padding: 18px 25px; cursor: pointer; transition: 0.3s; margin: 8px 15px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px solid transparent; }
-        .sub-item.active { background: white !important; color: #4f46e5 !important; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border-left: 6px solid #f59e0b; }
         
-        .main { margin-left: 320px; padding: 30px; height: 100vh; overflow-y: auto; }
-        .glass-card { background: var(--glass); backdrop-filter: blur(15px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 15px 35px rgba(0,0,0,0.04); margin-bottom: 25px; padding: 25px; position: relative; overflow: hidden; }
-        .stat-icon-bg { position: absolute; right: -15px; bottom: -15px; font-size: 5rem; opacity: 0.04; transform: rotate(-15deg); pointer-events: none; }
-        .stat-value { font-size: 2.2rem; font-weight: 900; letter-spacing: -1px; }
+        /* 侧边栏 */
+        .sidebar { width: 320px; background: var(--sidebar-grad); height: 100vh; position: fixed; color: white; z-index: 100; box-shadow: 10px 0 30px rgba(0,0,0,0.2); }
+        .sidebar-header { padding: 30px 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .sub-list { height: calc(100vh - 360px); overflow-y: auto; padding: 10px 0; }
+        .sub-item { padding: 16px 20px; cursor: pointer; transition: 0.3s; margin: 8px 15px; border-radius: 18px; background: rgba(255,255,255,0.05); border: 1px solid transparent; }
+        .sub-item:hover { background: rgba(255,255,255,0.12); transform: translateY(-2px); }
+        .sub-item.active { background: white !important; color: #4f46e5 !important; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border-left: 6px solid #f59e0b; }
+        .sub-disabled { opacity: 0.4; filter: grayscale(1); }
 
+        /* 主面板布局 */
+        .main { margin-left: 320px; padding: 30px; height: 100vh; overflow-y: auto; }
+        .glass-card { background: var(--glass); backdrop-filter: blur(20px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 15px 35px rgba(0,0,0,0.04); margin-bottom: 25px; padding: 25px; position: relative; overflow: hidden; }
+
+        /* 统一 4 字渐变按钮 */
         .btn-grad { border: none !important; color: #ffffff !important; border-radius: 16px; font-weight: 700; padding: 12px 22px; transition: 0.3s; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15); text-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .btn-grad:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); opacity: 0.9; color: #fff !important; }
+        .btn-grad:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); opacity: 0.9; }
         .btn-primary-grad { background: var(--primary-grad) !important; }
         .btn-success-grad { background: var(--success-grad) !important; }
         .btn-danger-grad { background: var(--danger-grad) !important; }
         .btn-secondary-custom { background: #64748b !important; color: #fff !important; }
 
-        /* 流光进度条核心 */
-        .progress { height: 18px; border-radius: 50px; background: #e2e8f0; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
-        .progress-bar { 
-            background: linear-gradient(90deg, #10b981 0%, #34d399 50%, #10b981 100%); 
-            background-size: 200% 100%; 
-            animation: shimmer 2s linear infinite; 
-            border-radius: 50px;
+        /* 统计卡片水印 */
+        .stat-icon-bg { position: absolute; right: -15px; bottom: -15px; font-size: 5rem; opacity: 0.04; transform: rotate(-15deg); pointer-events: none; }
+        .stat-value { font-size: 2.2rem; font-weight: 900; letter-spacing: -1px; }
+
+        /* 分辨率保留标签 (修复版) */
+        .res-tag-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        .res-tag-check { display: none; }
+        .res-tag-label { 
+            padding: 8px 18px; border-radius: 14px; background: #e2e8f0; cursor: pointer; 
+            font-weight: 700; font-size: 13px; border: 2px solid transparent; transition: 0.3s;
+            color: #475569;
         }
-        @keyframes shimmer { 0% { background-position: 200% 0%; } 100% { background-position: -200% 0%; } }
+        .res-tag-check:checked + .res-tag-label { 
+            background: #4f46e5; color: white; border-color: #c7d2fe; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        /* 终端日志 */
+        .progress { height: 18px; border-radius: 50px; background: #e2e8f0; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+        .progress-bar { background: var(--success-grad); background-size: 200% 100%; animation: shimmer 2s linear infinite; border-radius: 50px; }
+        @keyframes shimmer { 0% { background-position: 100% 0%; } 100% { background-position: -100% 0%; } }
 
         .console { background: #0f172a; color: #f1f5f9; height: 500px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 13px; padding: 25px; border-radius: 28px; border: 4px solid #1e293b; box-shadow: inset 0 4px 15px rgba(0,0,0,0.5); }
         .log-line { margin-bottom: 5px; padding: 6px 12px; border-radius: 8px; border-bottom: 1px solid rgba(255,255,255,0.03); }
@@ -55,8 +72,7 @@
         .scroll-tag { position: absolute; bottom: 35px; right: 45px; background: #3b82f6; color: white; padding: 10px 22px; border-radius: 50px; font-size: 12px; opacity: 0; transition: 0.4s; cursor: pointer; z-index: 100; display: none; }
         .scroll-tag.show { opacity: 1; display: block; }
         .sys-info-box { font-size: 11px; color: #cbd5e1; margin-top: 25px; padding: 0 25px; }
-        .chart-card { padding: 15px !important; }
-        .sub-disabled { opacity: 0.4; filter: grayscale(1); }
+        .hw-console { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 15px; border-radius: 12px; height: 120px; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -64,8 +80,8 @@
 <div class="sidebar">
     <div class="sidebar-header text-center">
         <h3 class="fw-800 animate__animated animate__fadeInLeft"><i class="bi bi-cpu-fill me-2 text-warning"></i> M3U Pro</h3>
-        <button class="btn btn-grad btn-primary-grad w-100 mt-4 shadow" id="addNewTaskBtn">
-            <i class="bi bi-plus-circle-fill"></i> 新增检测任务
+        <button class="btn btn-grad btn-primary-grad w-100 mt-4 shadow" onclick="showAddModal()">
+            <i class="bi bi-plus-circle-fill"></i> 新增探测任务
         </button>
         <div class="sys-info-box">
             <div class="d-flex justify-content-between"><span>CPU 负载</span><span id="sysCpu">0%</span></div>
@@ -84,11 +100,11 @@
     <div id="noSelect" class="h-100 d-flex flex-column align-items-center justify-content-center opacity-25 text-center">
         <i class="bi bi-intersect display-1 mb-3"></i>
         <h2 class="fw-800">Operational Dashboard</h2>
-        <p>选择一个任务，开启多维数据实时分析</p>
+        <p>选择一个任务，开启深度分析与实时数据追踪</p>
     </div>
 
     <div id="dashboard" class="d-none animate__animated animate__fadeIn">
-        <!-- 1. Header -->
+        <!-- 1. Header (4 字按钮对齐) -->
         <div class="d-flex justify-content-between align-items-center mb-5">
             <div><h1 id="viewName" class="fw-800 mb-0 text-dark">--</h1><span id="viewUrl" class="badge bg-white text-primary border shadow-sm mt-2 p-2 px-3 rounded-pill"></span></div>
             <div class="d-flex gap-2">
@@ -133,38 +149,40 @@
 </div>
 
 <!-- Modal 任务配置 -->
-<div class="modal fade" id="editModal" data-bs-backdrop="static" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-4" style="border-radius:35px;">
-    <h5 class="fw-800 mb-4 text-center text-dark">任务配置参数</h5>
+<div class="modal fade" id="editModal" data-bs-backdrop="static" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-4" style="border-radius:30px;">
+    <h5 class="fw-800 mb-4 text-center">任务配置面板</h5>
     <input type="hidden" id="editId">
-    <div class="mb-4"><label class="fw-bold small text-muted">名称</label><input type="text" id="editName" class="form-control bg-light border-0 rounded-3 p-3"></div>
-    <div class="mb-4"><label class="fw-bold small text-muted">URL</label><input type="text" id="editUrl" class="form-control bg-light border-0 rounded-3 p-3"></div>
-    <div class="mb-4"><label class="fw-bold small text-muted">分辨率保留</label><div class="res-tag-group mt-1"><input type="checkbox" id="res_sd" class="res-tag-check" value="sd" checked><label for="res_sd" class="res-tag-label">SD</label><input type="checkbox" id="res_720" class="res-tag-check" value="720p" checked><label for="res_720" class="res-tag-label">720P</label><input type="checkbox" id="res_1080" class="res-tag-check" value="1080p" checked><label for="res_1080" class="res-tag-label">1080P</label><input type="checkbox" id="res_4k" class="res-tag-check" value="4k" checked><label for="res_4k" class="res-tag-label">4K</label><input type="checkbox" id="res_8k" class="res-tag-check" value="8k" checked><label for="res_8k" class="res-tag-label">8K</label></div></div>
-    <div class="row g-3 mb-4"><div class="col-6"><label class="fw-bold small text-muted">线程</label><input type="number" id="editThreads" class="form-control bg-light border-0 rounded-3" value="10"></div><div class="col-6"><label class="fw-bold small text-muted">模式</label><select id="editMode" class="form-select bg-light border-0 rounded-3" onchange="toggleFields()"><option value="none">手动</option><option value="fixed">定时</option><option value="interval">间隔</option></select></div></div>
+    <div class="mb-3"><label class="fw-bold small text-muted">频道名称</label><input type="text" id="editName" class="form-control bg-light border-0 rounded-3"></div>
+    <div class="mb-3"><label class="fw-bold small text-muted">订阅 URL</label><input type="text" id="editUrl" class="form-control bg-light border-0 rounded-3"></div>
+    <div class="mb-4"><label class="fw-bold small text-muted">保留分辨率档位</label>
+        <div class="res-tag-group mt-2">
+            <input type="checkbox" id="res_sd" class="res-tag-check" value="sd"><label for="res_sd" class="res-tag-label">SD</label>
+            <input type="checkbox" id="res_720" class="res-tag-check" value="720p"><label for="res_720" class="res-tag-label">720P</label>
+            <input type="checkbox" id="res_1080" class="res-tag-check" value="1080p"><label for="res_1080" class="res-tag-label">1080P</label>
+            <input type="checkbox" id="res_4k" class="res-tag-check" value="4k"><label for="res_4k" class="res-tag-label">4K</label>
+            <input type="checkbox" id="res_8k" class="res-tag-check" value="8k"><label for="res_8k" class="res-tag-label">8K</label>
+        </div>
+    </div>
+    <div class="row g-2 mb-3"><div class="col-6"><label class="fw-bold small text-muted">并发线程</label><input type="number" id="editThreads" class="form-control bg-light border-0 rounded-3" value="10"></div><div class="col-6"><label class="fw-bold small text-muted">执行模式</label><select id="editMode" class="form-select bg-light border-0 rounded-3" onchange="toggleFields()"><option value="none">手动执行</option><option value="fixed">定时执行</option><option value="interval">间隔执行</option></select></div></div>
     <div id="ef" class="mb-3 d-none"><input type="text" id="editTimes" class="form-control rounded-3" placeholder="08:00, 20:00"></div>
     <div id="ei" class="mb-3 d-none"><input type="number" id="editHours" class="form-control rounded-3" placeholder="小时"></div>
-    <div class="form-check form-switch mb-4 bg-light p-3 px-5 rounded-4"><input class="form-check-input" type="checkbox" id="editEnabled" checked><label class="form-check-label fw-bold">启用计划任务</label></div>
-    <div class="d-flex justify-content-between pt-3 border-top"><button class="btn btn-outline-danger" style="border-radius:12px; font-weight:700" onclick="deleteSub()" id="delBtn">移除任务</button><button class="btn btn-grad btn-primary-grad px-5" id="saveSubBtn">保存同步</button></div>
+    <div class="form-check form-switch mb-4 bg-light p-3 px-5 rounded-4"><input class="form-check-input" type="checkbox" id="editEnabled" checked><label class="form-check-label fw-bold"> 启用当前任务</label></div>
+    <div class="d-flex justify-content-between pt-3 border-top"><button class="btn btn-outline-danger" style="border-radius:14px; font-weight:700" onclick="deleteSub()" id="delBtn">移除源</button><button class="btn btn-grad btn-primary-grad px-5" onclick="saveSub()">保存同步</button></div>
 </div></div></div>
 
-<div class="modal fade" id="settingsModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-5" style="border-radius:35px;"><h5 class="fw-800 mb-4 text-center">系统设置面板</h5><div class="d-flex align-items-center justify-content-between mb-4 bg-primary bg-opacity-10 p-4 rounded-4"><div><h6 class="fw-bold mb-1">GPU 硬件加速</h6></div><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="globalHwAccel" style="width:50px; height:25px;"></div></div><div class="mb-3"><label class="fw-bold small text-muted">EPG 接口</label><input type="text" id="globalEpg" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3"><label class="fw-bold small text-muted">台标路径</label><input type="text" id="globalLogo" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3 bg-light p-3 rounded-4 small d-flex justify-content-between"><span>V4: <b id="ipV4">--</b> | V6: <b id="ipV6">--</b></span><button class="btn btn-xs btn-dark py-0" onclick="testNetwork()">测试网络</button></div><div id="hwResult" class="mb-3 d-none animate__animated animate__fadeIn"><div id="hwStatusMsg" class="fw-bold mb-1 text-center"></div><div style="max-height:150px;overflow-y:auto;"><table class="table table-sm table-dark x-small rounded-3 overflow-hidden"><thead><tr><th>Codec</th><th>Status</th></tr></thead><tbody id="hwTbody"></tbody></table></div></div><div class="hw-console mb-3" id="hwOutput">等待驱动诊断...</div><button class="btn btn-dark w-100 mb-4 rounded-3 py-2" onclick="testHardware()">开始 VA-API 诊断</button><button class="btn btn-grad btn-primary-grad w-100 py-3 shadow-lg" id="saveGlobalSettingsBtn">应用并保存配置</button></div></div></div>
+<div class="modal fade" id="settingsModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-5" style="border-radius:35px;"><h5 class="fw-800 mb-4 text-center">系统设置中心</h5><div class="d-flex align-items-center justify-content-between mb-4 bg-primary bg-opacity-10 p-4 rounded-4"><div><h6 class="fw-bold mb-1">GPU 硬件加速探测</h6></div><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="globalHwAccel" checked style="width:50px; height:25px;"></div></div><div class="mb-3"><label class="fw-bold small text-muted">EPG 接口</label><input type="text" id="globalEpg" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3"><label class="fw-bold small text-muted">台标库根路径</label><input type="text" id="globalLogo" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3 bg-light p-3 rounded-4 small d-flex justify-content-between align-items-center"><span>V4: <b id="ipV4">--</b> | V6: <b id="ipV6">--</b></span><button class="btn btn-xs btn-dark py-1" onclick="testNetwork()">运行网络测试</button></div><div id="hwResult" class="mb-3 d-none animate__animated animate__fadeIn"><div id="hwStatusMsg" class="fw-bold mb-1 text-center"></div><div style="max-height:150px;overflow-y:auto;"><table class="table table-sm table-dark x-small rounded-3 overflow-hidden"><thead><tr><th>编解码器</th><th>状态</th></tr></thead><tbody id="hwTbody"></tbody></table></div></div><div class="hw-console mb-3" id="hwOutput">等待驱动扫描...</div><button class="btn btn-dark w-100 mb-4 rounded-3 py-2" onclick="testHardware()">开始 VA-API 诊断</button><button class="btn btn-grad btn-primary-grad w-100 py-3 shadow-lg" onclick="saveGlobalSettings()">保存配置并应用</button></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     let subs = [], currentId = null, pollTimer = null, autoScroll = true, charts = {};
     const editModal = new bootstrap.Modal(document.getElementById('editModal')), settingsModal = new bootstrap.Modal(document.getElementById('settingsModal')), conBox = document.getElementById('console');
 
-    conBox.addEventListener('scroll', () => { 
-        const isAtBottom = conBox.scrollHeight - conBox.scrollTop - conBox.clientHeight < 100;
-        autoScroll = isAtBottom;
-        document.getElementById('scrollTag').classList.toggle('show', !autoScroll);
-    });
-
+    conBox.addEventListener('scroll', () => { autoScroll = conBox.scrollHeight - conBox.scrollTop - conBox.clientHeight < 120; document.getElementById('scrollTag').classList.toggle('show', !autoScroll); });
     function scrollToBottom() { conBox.scrollTop = conBox.scrollHeight; autoScroll = true; }
 
     function initCharts() {
         Object.values(charts).forEach(c => c && c.destroy());
-        const tipOpt = { callbacks: { label: (ctx) => { let sum = ctx.dataset.data.reduce((a,b)=>a+b,0); return `${ctx.label}: ${ctx.raw} (${(ctx.raw/sum*100).toFixed(1)}%)`; } } };
-        const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tipOpt }, cutout: '75%' };
+        const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => { let sum = ctx.dataset.data.reduce((a,b)=>a+b,0); return `${ctx.label}: ${ctx.raw} (${(ctx.raw/sum*100).toFixed(1)}%)`; } } } }, cutout: '75%' };
         charts.res = new Chart(document.getElementById('resChart'), { type:'doughnut', data:{ labels:['4K','1080P','720P','SD'], datasets:[{ data:[0,0,0,0], backgroundColor:['#8b5cf6','#3b82f6','#10b981','#f59e0b'], borderWidth:0 }] }, options: opt });
         charts.stab = new Chart(document.getElementById('stabChart'), { type:'doughnut', data:{ labels:['成功','失败','熔断'], datasets:[{ data:[0,0,0], backgroundColor:['#10b981','#f43f5e','#f59e0b'], borderWidth:0 }] }, options: opt });
         charts.lat = new Chart(document.getElementById('latChart'), { type:'doughnut', data:{ labels:['<100ms','<500ms','>500ms'], datasets:[{ data:[0,0,0], backgroundColor:['#6366f1','#3b82f6','#94a3b8'], borderWidth:0 }] }, options: opt });
@@ -176,7 +194,7 @@
         const res = await fetch('/api/subs'); const data = await res.json();
         subs = data.subs; document.getElementById('globalHwAccel').checked = data.settings.use_hwaccel;
         document.getElementById('globalEpg').value = data.settings.epg_url; document.getElementById('globalLogo').value = data.settings.logo_base;
-        document.getElementById('subsList').innerHTML = subs.map(s => `<div class="sub-item ${s.id===currentId?'active':''} ${s.enabled===false?'sub-disabled':''}" onclick="selectSub('${s.id}')"><div class="fw-bold text-truncate">${s.name}</div></div>`).join('');
+        document.getElementById('subsList').innerHTML = subs.map(s => `<div class="sub-item ${s.id===currentId?'active':''} ${s.enabled===false?'sub-disabled':''}" onclick="selectSub('${s.id}')"><div class="fw-bold text-truncate"><i class="bi bi-hdd-network me-2"></i>${s.name}</div></div>`).join('');
     }
 
     function selectSub(id) {
@@ -185,65 +203,67 @@
         document.getElementById('viewUrl').innerText = s.url;
         document.getElementById('m3uUrl').value = `${window.location.origin}/sub/${id}.m3u`;
         document.getElementById('txtUrl').value = `${window.location.origin}/sub/${id}.txt`;
-        initCharts(); loadSubs(); 
-        if(pollTimer) clearInterval(pollTimer); pollTimer = setInterval(updateStatus, 1500);
+        initCharts(); loadSubs(); if(pollTimer) clearInterval(pollTimer); pollTimer = setInterval(updateStatus, 1500);
     }
 
     async function updateStatus() {
         if(!currentId) return;
-        try {
-            const res = await fetch('/api/status/' + currentId); const data = await res.json();
-            document.getElementById('statTotal').innerText = data.total; document.getElementById('statCurrent').innerText = data.current;
-            document.getElementById('statSuccess').innerText = data.success; document.getElementById('statBanned').innerText = data.banned_count;
-            document.getElementById('statRate').innerText = (data.current > 0 ? Math.round(data.success/data.current*100) : 0) + '%';
-            document.getElementById('pText').innerText = Math.round(data.current/data.total*100 || 0) + '%';
-            document.getElementById('pBar').style.width = Math.round(data.current/data.total*100 || 0) + '%';
-            if(data.analytics && charts.res) {
-                charts.res.data.datasets[0].data = [data.analytics.res['4K']||0, data.analytics.res['1080P']||0, data.analytics.res['720P']||0, data.analytics.res['SD']||0]; charts.res.update('none');
-                charts.lat.data.datasets[0].data = [data.analytics.lat['<100ms']||0, data.analytics.lat['<500ms']||0, data.analytics.lat['>500ms']||0]; charts.lat.update('none');
-                charts.stab.data.datasets[0].data = [data.analytics.stability.success, data.analytics.stability.fail, data.analytics.stability.banned]; charts.stab.update('none');
-                const vc = data.analytics.v_codec || {}; charts.vCodec.data.datasets[0].data = [vc['H264']||0, vc['HEVC']||0, vc['MPEG2']||0, vc['UNK']||0]; charts.vCodec.update('none');
-                const ac = data.analytics.a_codec || {}; charts.aCodec.data.datasets[0].data = [ac['AAC']||0, ac['MP3']||0, ac['AC3']||0, ac['无']||0]; charts.aCodec.update('none');
-            }
-            document.getElementById('console').innerHTML = data.logs.map(l => {
-                let c = ""; if(l.includes('✅')) c="log-success"; else if(l.includes('❌')) c="log-fail"; else if(l.includes('⚠️')) c="log-warning";
-                return `<div class="log-line ${c}">${l}</div>`;
-            }).join('');
-            if(autoScroll) conBox.scrollTop = 999999;
-            const rb = document.getElementById('runBtn'), sb = document.getElementById('stopBtn');
-            if(data.running){ rb.classList.add('d-none'); sb.classList.remove('d-none'); } else { rb.classList.remove('d-none'); sb.classList.add('d-none'); }
-            const sres = await fetch('/api/sys_info'); const sdata = await sres.json();
-            document.getElementById('sysCpu').innerText = sdata.cpu + '%'; document.getElementById('cpuBar').style.width = sdata.cpu + '%';
-            document.getElementById('sysRam').innerText = sdata.ram + '%'; document.getElementById('ramBar').style.width = sdata.ram + '%';
-            document.getElementById('sysGpuVal').innerText = sdata.gpu + '%'; document.getElementById('gpuBar').style.width = sdata.gpu + '%';
-            document.getElementById('sysGpu').innerText = sdata.gpu_active ? "ACTIVE" : "IDLE"; document.getElementById('sysGpu').style.color = sdata.gpu_active ? "#fbbf24" : "#cbd5e1";
-        } catch(e) {}
+        const res = await fetch('/api/status/' + currentId); const data = await res.json();
+        document.getElementById('statTotal').innerText = data.total; document.getElementById('statCurrent').innerText = data.current;
+        document.getElementById('statSuccess').innerText = data.success; document.getElementById('statBanned').innerText = data.banned_count;
+        document.getElementById('statRate').innerText = (data.current > 0 ? Math.round(data.success/data.current*100) : 0) + '%';
+        document.getElementById('pText').innerText = Math.round(data.current/data.total*100 || 0) + '%';
+        document.getElementById('pBar').style.width = Math.round(data.current/data.total*100 || 0) + '%';
+        if(data.analytics && charts.res) {
+            charts.res.data.datasets[0].data = [data.analytics.res['4K']||0, data.analytics.res['1080P']||0, data.analytics.res['720P']||0, data.analytics.res['SD']||0]; charts.res.update('none');
+            charts.lat.data.datasets[0].data = [data.analytics.lat['<100ms']||0, data.analytics.lat['<500ms']||0, data.analytics.lat['>500ms']||0]; charts.lat.update('none');
+            charts.stab.data.datasets[0].data = [data.analytics.stability.success, data.analytics.stability.fail, data.analytics.stability.banned]; charts.stab.update('none');
+            const vc = data.analytics.v_codec || {}; charts.vCodec.data.datasets[0].data = [vc['H264']||0, vc['HEVC']||0, vc['MPEG2']||0, vc['UNK']||0]; charts.vCodec.update('none');
+            const ac = data.analytics.a_codec || {}; charts.aCodec.data.datasets[0].data = [ac['AAC']||0, ac['MP3']||0, ac['AC3']||0, ac['无']||0]; charts.aCodec.update('none');
+        }
+        document.getElementById('console').innerHTML = data.logs.map(l => {
+            let c = ""; if(l.includes('✅')) c="log-success"; else if(l.includes('❌')) c="log-fail"; else if(l.includes('⚠️')) c="log-warning";
+            return `<div class="log-line ${c}">${l}</div>`;
+        }).join('');
+        if(autoScroll) conBox.scrollTop = 999999;
+        const rb = document.getElementById('runBtn'), sb = document.getElementById('stopBtn');
+        if(data.running){ rb.classList.add('d-none'); sb.classList.remove('d-none'); } else { rb.classList.remove('d-none'); sb.classList.add('d-none'); }
+        const sres = await fetch('/api/sys_info'); const sdata = await sres.json();
+        document.getElementById('sysCpu').innerText = sdata.cpu + '%'; document.getElementById('cpuBar').style.width = sdata.cpu + '%';
+        document.getElementById('sysRam').innerText = sdata.ram + '%'; document.getElementById('ramBar').style.width = sdata.ram + '%';
+        document.getElementById('sysGpuVal').innerText = sdata.gpu + '%'; document.getElementById('gpuBar').style.width = sdata.gpu + '%';
+        document.getElementById('sysGpu').innerText = sdata.gpu_active ? "ACTIVE" : "IDLE"; document.getElementById('sysGpu').style.color = sdata.gpu_active ? "#fbbf24" : "#64748b";
     }
 
     async function testNetwork() {
-        document.getElementById('ipV4').innerText = "获取中..."; document.getElementById('ipV6').innerText = "获取中...";
+        document.getElementById('ipV4').innerText = "..."; document.getElementById('ipV6').innerText = "...";
         const r = await fetch('/api/network_test'); const d = await r.json();
         document.getElementById('ipV4').innerHTML = d.v4.status ? `✅ ${d.v4.ip}` : "❌";
         document.getElementById('ipV6').innerHTML = d.v6.status ? `✅ ${d.v6.ip}` : "❌";
     }
 
     async function testHardware() { 
-        const out = document.getElementById('hwOutput'); out.innerText = "正在发起底层诊断..."; 
+        const out = document.getElementById('hwOutput'); out.innerText = "诊断中..."; 
         const r = await fetch('/api/hw_test'); const d = await r.json(); 
-        out.innerText = d.raw; 
+        out.innerText = d.raw; out.style.color = d.status === "success" ? "#4ade80" : "#f87171";
         document.getElementById('hwResult').classList.remove('d-none');
         document.getElementById('hwStatusMsg').innerText = d.message;
-        document.getElementById('hwStatusMsg').style.color = d.status === "success" ? "#10b981" : "#ef4444";
-        document.getElementById('hwTbody').innerHTML = d.codecs.map(c => `<tr><td>${c}</td><td>✅ 支持</td></tr>`).join('');
+        document.getElementById('hwTbody').innerHTML = d.codecs.map(c => `<tr><td>${c}</td><td>✅</td></tr>`).join('');
     }
 
-    document.getElementById('addNewTaskBtn').onclick = () => { document.getElementById('editId').value=""; document.getElementById('editName').value=""; document.getElementById('editUrl').value=""; editModal.show(); };
-    document.getElementById('saveSubBtn').onclick = saveSub;
-    document.getElementById('saveGlobalSettingsBtn').onclick = saveGlobalSettings;
-
-    function editCurrent() { const s = subs.find(x => x.id === currentId); document.getElementById('editId').value=s.id; document.getElementById('editName').value=s.name; document.getElementById('editUrl').value=s.url; document.getElementById('editThreads').value=s.threads||10; document.getElementById('editEnabled').checked = s.enabled!==false; editModal.show(); }
+    function showAddModal() { document.getElementById('editId').value=""; document.getElementById('editName').value=""; document.getElementById('editUrl').value=""; ["sd", "720", "1080", "4k", "8k"].forEach(r => document.getElementById('res_'+r).checked = true); editModal.show(); }
+    function editCurrent() { 
+        const s = subs.find(x => x.id === currentId); document.getElementById('editId').value=s.id; document.getElementById('editName').value=s.name; document.getElementById('editUrl').value=s.url; document.getElementById('editThreads').value=s.threads||10; document.getElementById('editEnabled').checked = s.enabled!==false;
+        const f = s.res_filter || ["sd", "720p", "1080p", "4k", "8k"];
+        ["sd", "720", "1080", "4k", "8k"].forEach(r => document.getElementById('res_'+r).checked = f.includes(r==='sd'?'sd':r+'p'));
+        toggleFields(); editModal.show(); 
+    }
     function toggleFields() { const m=document.getElementById('editMode').value; document.getElementById('ef').classList.toggle('d-none', m!=='fixed'); document.getElementById('ei').classList.toggle('d-none', m!=='interval'); }
-    async function saveSub() { const f = []; if(document.getElementById('res_sd').checked) f.push('sd'); if(document.getElementById('res_720').checked) f.push('720p'); if(document.getElementById('res_1080').checked) f.push('1080p'); if(document.getElementById('res_4k').checked) f.push('4k'); if(document.getElementById('res_8k').checked) f.push('8k'); const d = { id: document.getElementById('editId').value, name: document.getElementById('editName').value, url: document.getElementById('editUrl').value, threads: document.getElementById('editThreads').value, schedule_mode: document.getElementById('editMode').value, fixed_times: document.getElementById('editTimes').value, interval_hours: document.getElementById('editHours').value, enabled: document.getElementById('editEnabled').checked, res_filter: f }; await fetch('/api/subs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d)}); editModal.hide(); loadSubs(); }
+    async function saveSub() { 
+        const f = []; if(document.getElementById('res_sd').checked) f.push('sd'); if(document.getElementById('res_720').checked) f.push('720p'); if(document.getElementById('res_1080').checked) f.push('1080p'); if(document.getElementById('res_4k').checked) f.push('4k'); if(document.getElementById('res_8k').checked) f.push('8k');
+        const d = { id: document.getElementById('editId').value, name: document.getElementById('editName').value, url: document.getElementById('editUrl').value, threads: document.getElementById('editThreads').value, schedule_mode: document.getElementById('editMode').value, fixed_times: document.getElementById('editTimes').value, interval_hours: document.getElementById('editHours').value, enabled: document.getElementById('editEnabled').checked, res_filter: f }; 
+        await fetch('/api/subs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d)}); editModal.hide(); loadSubs(); 
+    }
     function startTask() { fetch('/api/start/' + currentId); autoScroll = true; }
     function stopTask() { if(currentId) fetch('/api/stop/' + currentId); }
     function showSettings() { settingsModal.show(); }
