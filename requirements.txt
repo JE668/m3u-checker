@@ -2,3 +2,4 @@ flask
 requests
 apscheduler
 urllib3
+psutil
