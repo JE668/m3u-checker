@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -17,18 +18,17 @@
             --glass: rgba(255, 255, 255, 0.85);
         }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; height: 100vh; overflow: hidden; }
-        .sidebar { width: 320px; background: var(--sidebar-grad); height: 100vh; position: fixed; color: white; z-index: 100; }
+        .sidebar { width: 320px; background: var(--sidebar-grad); height: 100vh; position: fixed; color: white; z-index: 100; box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
         .sub-item { padding: 18px 25px; cursor: pointer; transition: 0.3s; margin: 8px 15px; border-radius: 20px; background: rgba(255,255,255,0.06); }
-        .sub-item.active { background: white !important; color: #4f46e5 !important; border-left: 6px solid #f59e0b; }
+        .sub-item.active { background: white !important; color: #4f46e5 !important; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left: 6px solid #f59e0b; }
         .main { margin-left: 320px; padding: 30px; height: 100vh; overflow-y: auto; }
-        .glass-card { background: var(--glass); backdrop-filter: blur(15px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.4); padding: 25px; margin-bottom: 25px; }
+        .glass-card { background: var(--glass); backdrop-filter: blur(15px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 15px 35px rgba(0,0,0,0.04); margin-bottom: 25px; padding: 25px; }
 
-        /* 渐变按钮修正 */
         .btn-grad { 
             border: none !important; color: #ffffff !important; border-radius: 16px; 
-            font-weight: 700; padding: 12px 24px; transition: 0.3s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            font-weight: 700; padding: 12px 24px; transition: 0.3s; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
         }
-        .btn-grad:hover { transform: translateY(-4px); box-shadow: 0 12px 20px rgba(0,0,0,0.2); opacity: 0.9; color: #fff !important; }
+        .btn-grad:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); opacity: 0.9; color: #fff !important; }
         .btn-primary-grad { background: var(--primary-grad) !important; }
         .btn-success-grad { background: var(--success-grad) !important; }
         .btn-danger-grad { background: var(--danger-grad) !important; }
@@ -43,11 +43,10 @@
         .progress { height: 18px; border-radius: 50px; background: #e2e8f0; overflow: hidden; }
         .progress-bar { background: var(--success-grad); animation: shimmer 2s linear infinite; }
         @keyframes shimmer { 0% { background-position: 100% 0%; } 100% { background-position: -100% 0%; } }
-        .sub-disabled { opacity: 0.4; filter: grayscale(1); }
-        .res-tag-group { display: flex; gap: 8px; flex-wrap: wrap; }
-        .res-tag-check { display: none; }
-        .res-tag-label { padding: 6px 15px; border-radius: 12px; background: #f1f5f9; cursor: pointer; font-weight: 600; font-size: 12px; border: 1px solid #e2e8f0; }
+        .res-tag-label { padding: 6px 15px; border-radius: 12px; background: #f1f5f9; cursor: pointer; font-weight: 600; font-size: 12px; border: 1px solid #e2e8f0; margin-right: 5px; }
         .res-tag-check:checked + .res-tag-label { background: #4f46e5; color: white; border-color: #4f46e5; }
+        .res-tag-check { display: none; }
+        .hw-console { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 15px; border-radius: 12px; height: 150px; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -65,7 +64,7 @@
 <div class="main">
     <div id="noSelect" class="h-100 d-flex flex-column align-items-center justify-content-center opacity-25">
         <i class="bi bi-layers display-1 mb-3"></i>
-        <h2 class="fw-800">Analytics Center</h2>
+        <h2 class="fw-800">Analytics Dashboard</h2>
         <p>选择一个订阅，开启可视化探测大屏</p>
     </div>
 
@@ -73,16 +72,15 @@
         <div class="d-flex justify-content-between align-items-center mb-5">
             <div><h1 id="viewName" class="fw-800 mb-0">--</h1><span id="viewUrl" class="badge bg-white text-primary border shadow-sm mt-2 p-2 px-3"></span></div>
             <div class="d-flex gap-3">
-                <button id="runBtn" class="btn btn-grad btn-success-grad shadow-lg" onclick="startTask()">🚀 开始执行</button>
-                <button id="stopBtn" class="btn btn-grad btn-danger-grad shadow-lg d-none" onclick="stopTask()">🛑 停止</button>
-                <button class="btn btn-grad btn-primary-grad shadow" onclick="editCurrent()">⚙️ 配置</button>
-                <button class="btn btn-grad btn-secondary-custom shadow" onclick="showSettings()">🛠️ 系统设置</button>
+                <button id="runBtn" class="btn btn-grad btn-success-grad" onclick="startTask()">🚀 开始执行</button>
+                <button id="stopBtn" class="btn btn-grad btn-danger-grad d-none" onclick="stopTask()">🛑 停止</button>
+                <button class="btn btn-grad btn-primary-grad" onclick="editCurrent()">⚙️ 配置</button>
+                <button class="btn btn-grad btn-secondary-custom" onclick="showSettings()">🛠️ 系统设置</button>
             </div>
         </div>
 
-        <!-- 统计栏：修正为有效率统计 -->
         <div class="row g-4 mb-4 text-center">
-            <div class="col-md-3"><div class="glass-card"><div>频道总数</div><div id="statTotal" class="stat-value text-dark">0</div></div></div>
+            <div class="col-md-3"><div class="glass-card"><div>总频道数</div><div id="statTotal" class="stat-value">0</div></div></div>
             <div class="col-md-3"><div class="glass-card"><div>已处理</div><div id="statCurrent" class="stat-value text-info">0</div></div></div>
             <div class="col-md-3"><div class="glass-card"><div>有效源</div><div id="statSuccess" class="stat-value text-success">0</div></div></div>
             <div class="col-md-3"><div class="glass-card text-primary"><div>当前有效率</div><div id="statRate" class="stat-value">0%</div></div></div>
@@ -92,8 +90,7 @@
             <div class="col-lg-7">
                 <div class="glass-card h-100">
                     <div class="d-flex justify-content-between mb-3">
-                        <h6 class="fw-bold">探测实时进度</h6>
-                        <span id="pText" class="badge bg-primary rounded-pill">0%</span>
+                        <h6 class="fw-bold">探测进度 <span id="pText" class="badge bg-primary">0%</span></h6>
                     </div>
                     <div class="progress mb-4"><div id="pBar" class="progress-bar progress-bar-striped"></div></div>
                     <div id="console" class="console"></div>
@@ -101,28 +98,46 @@
             </div>
             <div class="col-lg-5">
                 <div class="glass-card text-center"><h6>画质分布占比</h6><div style="height:200px"><canvas id="resChart"></canvas></div></div>
-                <div class="glass-card mb-0 text-center"><h6>延迟区间分布</h6><div style="height:200px"><canvas id="latChart"></canvas></div></div>
+                <div class="glass-card mb-0 text-center"><h6>连接延迟区间</h6><div style="height:200px"><canvas id="latChart"></canvas></div></div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 弹窗部分 (已适配美化与按钮修复) -->
-<div class="modal fade" id="editModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content p-4 shadow-lg">
+<!-- 任务配置弹窗 -->
+<div class="modal fade" id="editModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-4">
     <h5 class="fw-800 mb-4 text-center">任务配置</h5>
     <input type="hidden" id="editId">
     <div class="mb-3"><label class="fw-bold small text-muted">名称</label><input type="text" id="editName" class="form-control bg-light border-0 rounded-3"></div>
     <div class="mb-3"><label class="fw-bold small text-muted">URL</label><input type="text" id="editUrl" class="form-control bg-light border-0 rounded-3"></div>
     <div class="mb-3"><label class="fw-bold small text-muted">保留分辨率</label><div class="res-tag-group mt-1"><input type="checkbox" id="res_sd" class="res-tag-check" value="sd" checked><label for="res_sd" class="res-tag-label">SD</label><input type="checkbox" id="res_720" class="res-tag-check" value="720p" checked><label for="res_720" class="res-tag-label">720P</label><input type="checkbox" id="res_1080" class="res-tag-check" value="1080p" checked><label for="res_1080" class="res-tag-label">1080P</label><input type="checkbox" id="res_4k" class="res-tag-check" value="4k" checked><label for="res_4k" class="res-tag-label">4K</label><input type="checkbox" id="res_8k" class="res-tag-check" value="8k" checked><label for="res_8k" class="res-tag-label">8K</label></div></div>
-    <div class="row g-2 mb-3"><div class="col-6"><label class="fw-bold small text-muted">线程</label><input type="number" id="editThreads" class="form-control bg-light border-0 rounded-3" value="10"></div><div class="col-6"><label class="fw-bold small text-muted">模式</label><select id="editMode" class="form-select bg-light border-0 rounded-3" onchange="toggleFields()"><option value="none">手动</option><option value="fixed">定时</option><option value="interval">间隔</option></select></div></div>
+    <div class="row g-2 mb-3">
+        <div class="col-6"><label class="fw-bold small text-muted">线程</label><input type="number" id="editThreads" class="form-control bg-light border-0 rounded-3" value="10"></div>
+        <div class="col-6"><label class="fw-bold small text-muted">模式</label><select id="editMode" class="form-select bg-light border-0 rounded-3" onchange="toggleFields()"><option value="none">手动</option><option value="fixed">定时</option><option value="interval">间隔</option></select></div>
+    </div>
     <div id="ef" class="mb-3 d-none"><input type="text" id="editTimes" class="form-control rounded-3" placeholder="08:00, 20:00"></div>
     <div id="ei" class="mb-3 d-none"><input type="number" id="editHours" class="form-control rounded-3" placeholder="12"></div>
-    <div class="form-check form-switch mb-4"><input class="form-check-input" type="checkbox" id="editEnabled" checked><label class="form-check-label fw-bold">启用计划</label></div>
-    <div class="d-flex justify-content-between pt-3 border-top"><button class="btn btn-outline-danger" style="border-radius:12px; font-weight:700" onclick="deleteSub()" id="delBtn">移除源</button><button class="btn btn-grad btn-primary-grad px-5" onclick="saveSub()">保存同步</button></div>
+    <div class="form-check form-switch mb-4"><input class="form-check-input" type="checkbox" id="editEnabled" checked><label class="form-check-label fw-bold">启用此任务</label></div>
+    <div class="d-flex justify-content-between pt-3 border-top">
+        <button class="btn btn-outline-danger" style="border-radius:12px; border-width:2px; font-weight:700" onclick="deleteSub()" id="delBtn">移除源</button>
+        <button class="btn btn-grad btn-primary-grad px-5" onclick="saveSub()">保存同步</button>
+    </div>
 </div></div></div>
 
 <!-- 设置弹窗 -->
-<div class="modal fade" id="settingsModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content p-4 shadow-lg"><h5 class="fw-800 mb-4 text-center">系统配置</h5><div class="d-flex align-items-center justify-content-between mb-4 bg-primary bg-opacity-10 p-3 rounded-4"><div><h6 class="fw-bold mb-1">GPU 硬件加速</h6></div><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="globalHwAccel" style="width:50px; height:25px;"></div></div><div class="mb-3"><label class="fw-bold small text-muted">EPG 接口</label><input type="text" id="globalEpg" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3"><label class="fw-bold small text-muted">台标根路径</label><input type="text" id="globalLogo" class="form-control bg-light border-0 rounded-3"></div><div class="hw-test-console mb-3" id="hwOutput">等待测试驱动...</div><button class="btn btn-dark w-100 mb-4 rounded-3 py-2" onclick="testHardware()">运行诊断</button><button class="btn btn-grad btn-primary-grad w-100 py-3" onclick="saveGlobalSettings()">保存并关闭</button></div></div></div>
+<div class="modal fade" id="settingsModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-4">
+    <h5 class="fw-800 mb-4 text-center">系统全局配置</h5>
+    <div class="d-flex align-items-center justify-content-between mb-3 bg-primary bg-opacity-10 p-3 rounded-4">
+        <div><h6 class="fw-bold mb-1">GPU 硬件加速探测</h6></div>
+        <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="globalHwAccel" style="width:50px; height:25px;"></div>
+    </div>
+    <div class="mb-3"><label class="fw-bold small text-muted">EPG 接口</label><input type="text" id="globalEpg" class="form-control bg-light border-0 rounded-3"></div>
+    <div class="mb-3"><label class="fw-bold small text-muted">台标根路径</label><input type="text" id="globalLogo" class="form-control bg-light border-0 rounded-3"></div>
+    <div id="hwResult" class="mb-3 d-none"><div id="hwStatusMsg" class="fw-bold mb-1 text-center"></div><div id="hwCodecs" class="small text-muted mb-2 text-center"></div></div>
+    <div class="hw-console mb-3" id="hwOutput">等待诊断...</div>
+    <button class="btn btn-dark w-100 mb-4 rounded-3 py-2" onclick="testHardware()">运行诊断</button>
+    <button class="btn btn-grad btn-primary-grad w-100 py-3" onclick="saveGlobalSettings()">保存并关闭</button>
+</div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -136,7 +151,7 @@
     function initCharts() {
         if(resChart) resChart.destroy(); if(latChart) latChart.destroy();
         const ctxR = document.getElementById('resChart').getContext('2d');
-        resChart = new Chart(ctxR, { type:'doughnut', data:{ labels:['4K','1080P','720P','SD'], datasets:[{ data:[0,0,0,0], backgroundColor:['#8b5cf6','#3b82f6','#10b981','#f59e0b'], borderWidth:0 }] }, options:{ cutout:'70%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10 } } } }, maintainAspectRatio:false } });
+        resChart = new Chart(ctxR, { type:'doughnut', data:{ labels:['4K','1080P','720P','SD'], datasets:[{ data:[0,0,0,0], backgroundColor:['#8b5cf6','#3b82f6','#10b981','#f59e0b'], borderWidth:0 }] }, options:{ cutout:'75%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10 } } } }, maintainAspectRatio:false } });
         const ctxL = document.getElementById('latChart').getContext('2d');
         latChart = new Chart(ctxL, { type:'bar', data:{ labels:['<100ms','<500ms','>500ms'], datasets:[{ label:'数量', data:[0,0,0], backgroundColor:'#6366f1', borderRadius:8 }] }, options:{ scales:{ y:{ beginAtZero:true, grid:{ display:false } }, x:{ grid:{ display:false } } }, plugins:{ legend:{ display:false } }, maintainAspectRatio:false } });
     }
@@ -146,7 +161,7 @@
         subs = data.subs; document.getElementById('globalHwAccel').checked = data.settings.use_hwaccel;
         document.getElementById('globalEpg').value = data.settings.epg_url;
         document.getElementById('globalLogo').value = data.settings.logo_base;
-        document.getElementById('subsList').innerHTML = subs.map(s => `<div class="sub-item ${s.id===currentId?'active':''} ${s.enabled===false?'sub-disabled':''}" onclick="selectSub('${s.id}')"><div class="fw-bold text-truncate">${s.name}</div></div>`).join('');
+        document.getElementById('subsList').innerHTML = subs.map(s => `<div class="sub-item ${s.id===currentId?'active':''}" onclick="selectSub('${s.id}')"><div class="fw-bold text-truncate">${s.name}</div></div>`).join('');
     }
 
     function selectSub(id) {
@@ -165,13 +180,12 @@
         document.getElementById('statRate').innerText = (data.current > 0 ? Math.round(data.success/data.current*100) : 0) + '%';
         document.getElementById('pText').innerText = Math.round(data.current/data.total*100 || 0) + '%';
         document.getElementById('pBar').style.width = Math.round(data.current/data.total*100 || 0) + '%';
-        
         if(data.analytics && resChart) {
             resChart.data.datasets[0].data = [data.analytics.res['4K']||0, data.analytics.res['1080P']||0, data.analytics.res['720P']||0, data.analytics.res['SD']||0]; resChart.update('none');
             latChart.data.datasets[0].data = [data.analytics.lat['<100ms']||0, data.analytics.lat['<500ms']||0, data.analytics.lat['>500ms']||0]; latChart.update('none');
         }
         document.getElementById('console').innerHTML = data.logs.map(l => `<div class="log-line ${l.includes('✅')?'log-success':(l.includes('❌')?'log-fail':'')}">${l}</div>`).join('');
-        if(autoScroll) conBox.scrollTop = 999999;
+        if(autoScroll) conBox.scrollTop = 99999;
         const rb = document.getElementById('runBtn'), sb = document.getElementById('stopBtn');
         if(data.running){ rb.classList.add('d-none'); sb.classList.remove('d-none'); } else { rb.classList.remove('d-none'); sb.classList.add('d-none'); }
     }
@@ -193,7 +207,15 @@
     function stopTask() { fetch('/api/stop/' + currentId); }
     function showSettings() { settingsModal.show(); }
     async function saveGlobalSettings() { const d = { use_hwaccel: document.getElementById('globalHwAccel').checked, epg_url: document.getElementById('globalEpg').value, logo_base: document.getElementById('globalLogo').value }; await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d) }); settingsModal.hide(); }
-    async function testHardware() { const out = document.getElementById('hwOutput'); out.innerText = "诊断中..."; const r = await fetch('/api/hw_test'); const d = await r.json(); out.innerText = d.raw; }
+    async function testHardware() { 
+        const out = document.getElementById('hwOutput'); out.innerText = "诊断中..."; 
+        const r = await fetch('/api/hw_test'); const d = await r.json(); 
+        out.innerText = d.raw; 
+        document.getElementById('hwResult').classList.remove('d-none');
+        document.getElementById('hwStatusMsg').innerText = d.message;
+        document.getElementById('hwStatusMsg').style.color = d.status === "success" ? "#10b981" : "#ef4444";
+        document.getElementById('hwCodecs').innerText = "支持硬件编解码类型: " + (d.codecs.join(", ") || "无");
+    }
     window.onload = loadSubs;
 </script>
 </body>
