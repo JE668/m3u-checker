@@ -3,58 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>m3u-checker Pro | Analytics Center</title>
-    <!-- 引入高级字体与图标 -->
+    <title>m3u-checker Pro | Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <style>
         :root {
             --sidebar-grad: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
             --primary-grad: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-            --success-grad: linear-gradient(90deg, #10b981 0%, #34d399 100%);
-            --danger-grad: linear-gradient(90deg, #f43f5e 0%, #fb7185 100%);
+            --success-grad: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            --danger-grad: linear-gradient(135deg, #dc2626 0%, #f43f5e 100%);
+            --info-grad: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
             --glass: rgba(255, 255, 255, 0.85);
         }
-
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background: #f1f5f9; height: 100vh; overflow: hidden; color: #1e293b; 
-        }
-
-        /* 侧边栏与主面板 (保持之前布局) */
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; height: 100vh; overflow: hidden; }
         .sidebar { width: 320px; background: var(--sidebar-grad); height: 100vh; position: fixed; color: white; z-index: 100; box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
-        .sidebar-header { padding: 40px 25px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sub-list { height: calc(100vh - 220px); overflow-y: auto; padding: 10px 0; }
         .sub-item { padding: 18px 25px; cursor: pointer; transition: 0.3s; margin: 8px 15px; border-radius: 20px; background: rgba(255,255,255,0.06); }
         .sub-item.active { background: white !important; color: #4f46e5 !important; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left: 6px solid #f59e0b; }
         .main { margin-left: 320px; padding: 30px; height: 100vh; overflow-y: auto; }
         .glass-card { background: var(--glass); backdrop-filter: blur(15px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 15px 35px rgba(0,0,0,0.04); margin-bottom: 25px; padding: 25px; }
-
-        /* 极致按钮修复 */
-        .btn-grad { 
-            border: none !important; color: #ffffff !important; border-radius: 16px; 
-            font-weight: 700; padding: 12px 28px; transition: 0.3s; 
-            display: inline-flex; align-items: center; gap: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-        }
+        .btn-grad { border: none !important; color: #ffffff !important; border-radius: 16px; font-weight: 700; padding: 12px 28px; transition: 0.3s; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15); }
         .btn-grad:hover { transform: translateY(-4px); box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2); opacity: 0.95; color: #ffffff !important; }
         .btn-primary-grad { background: var(--primary-grad) !important; }
         .btn-success-grad { background: var(--success-grad) !important; }
         .btn-danger-grad { background: var(--danger-grad) !important; }
-        
-        /* 统计卡片与大屏 */
+        .btn-info-grad { background: var(--info-grad) !important; }
         .stat-value { font-size: 2.5rem; font-weight: 900; letter-spacing: -1px; }
         .console { background: #0f172a; color: #4ade80; height: 400px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 13px; padding: 20px; border-radius: 20px; }
-        .log-line { margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 3px; }
         .progress { height: 18px; border-radius: 50px; background: #e2e8f0; overflow: hidden; }
-        .progress-bar { background: var(--success-grad); animation: shimmer 2s linear infinite; }
-        @keyframes shimmer { 0% { background-position: 100% 0%; } 100% { background-position: -100% 0%; } }
-
-        /* 模态框修正 */
-        .modal-content { border-radius: 30px !important; border: none !important; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important; }
-        .hw-test-console { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 15px; border-radius: 12px; height: 150px; overflow-y: auto; }
+        .progress-bar { background: linear-gradient(90deg, #10b981 0%, #34d399 100%); border-radius: 50px; }
+        .hw-console { background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 15px; border-radius: 12px; height: 150px; overflow-y: auto; }
+        .sub-disabled { opacity: 0.4; filter: grayscale(1); }
     </style>
 </head>
 <body>
@@ -83,7 +65,7 @@
                 <button id="runBtn" class="btn btn-grad btn-success-grad" onclick="startTask()">🚀 开始执行</button>
                 <button id="stopBtn" class="btn btn-grad btn-danger-grad d-none" onclick="stopTask()">🛑 停止</button>
                 <button class="btn btn-grad btn-primary-grad" onclick="editCurrent()">⚙️ 配置</button>
-                <button class="btn btn-grad btn-primary-grad" onclick="showSettings()" style="background: #64748b !important;">🛠️ 系统设置</button>
+                <button class="btn btn-grad btn-info-grad" onclick="showSettings()">🛠️ 系统设置</button>
             </div>
         </div>
 
@@ -110,9 +92,15 @@
     <input type="hidden" id="editId">
     <div class="mb-3"><label class="fw-bold small text-muted">名称</label><input type="text" id="editName" class="form-control bg-light border-0 rounded-3"></div>
     <div class="mb-3"><label class="fw-bold small text-muted">URL</label><input type="text" id="editUrl" class="form-control bg-light border-0 rounded-3"></div>
-    <div class="mb-3"><label class="fw-bold small text-muted">并发线程</label><input type="number" id="editThreads" class="form-control bg-light border-0 rounded-3" value="10"></div>
-    <div class="d-flex justify-content-between mt-4">
-        <button class="btn-outline-danger-custom" onclick="deleteSub()" id="delBtn">移除源</button>
+    <div class="row g-2 mb-3">
+        <div class="col-6"><label class="fw-bold small text-muted">并发线程</label><input type="number" id="editThreads" class="form-control bg-light border-0 rounded-3" value="10"></div>
+        <div class="col-6"><label class="fw-bold small text-muted">模式</label><select id="editMode" class="form-select bg-light border-0" onchange="toggleFields()"><option value="none">手动</option><option value="fixed">定时</option><option value="interval">间隔</option></select></div>
+    </div>
+    <div id="ef" class="mb-3 d-none"><input type="text" id="editTimes" class="form-control rounded-3" placeholder="08:00, 20:00"></div>
+    <div id="ei" class="mb-3 d-none"><input type="number" id="editHours" class="form-control rounded-3" placeholder="12"></div>
+    <div class="form-check form-switch mb-4"><input class="form-check-input" type="checkbox" id="editEnabled" checked><label class="form-check-label">启用此任务</label></div>
+    <div class="d-flex justify-content-between">
+        <button class="btn btn-outline-danger" style="border-radius:12px" onclick="deleteSub()" id="delBtn">移除源</button>
         <button class="btn btn-grad btn-primary-grad px-5" onclick="saveSub()">保存同步</button>
     </div>
 </div></div></div>
@@ -130,6 +118,7 @@
     <button class="btn btn-grad btn-primary-grad w-100 py-3" onclick="saveGlobalSettings()">保存系统配置</button>
 </div></div></div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     let subs = [], currentId = null, pollTimer = null, resChart = null, latChart = null;
     const editModal = new bootstrap.Modal(document.getElementById('editModal'));
@@ -146,7 +135,10 @@
     async function loadSubs() {
         const res = await fetch('/api/subs'); const data = await res.json();
         subs = data.subs; document.getElementById('globalHwAccel').checked = data.settings.use_hwaccel;
-        document.getElementById('subsList').innerHTML = subs.map(s => `<div class="sub-item ${s.id===currentId?'active':''}" onclick="selectSub('${s.id}')"><div class="fw-bold text-truncate">${s.name}</div></div>`).join('');
+        document.getElementById('subsList').innerHTML = subs.map(s => `
+            <div class="sub-item ${s.id===currentId?'active':''}" onclick="selectSub('${s.id}')">
+                <div class="fw-bold text-truncate">${s.name}</div>
+            </div>`).join('');
     }
 
     function selectSub(id) {
@@ -165,19 +157,19 @@
             resChart.data.datasets[0].data = [data.analytics.res['4K']||0, data.analytics.res['1080P']||0, data.analytics.res['720P']||0, data.analytics.res['SD']||0]; resChart.update('none');
             latChart.data.datasets[0].data = [data.analytics.lat['<100ms']||0, data.analytics.lat['<500ms']||0, data.analytics.lat['>500ms']||0]; latChart.update('none');
         }
-        document.getElementById('console').innerHTML = data.logs.map(l => `<div class="log-line">${l}</div>`).join('');
+        document.getElementById('console').innerHTML = data.logs.map(l => `<div>${l}</div>`).join('');
         document.getElementById('console').scrollTop = 99999;
     }
 
     function showAddModal() { document.getElementById('editId').value=""; document.getElementById('editName').value=""; document.getElementById('editUrl').value=""; editModal.show(); }
     function editCurrent() { const s = subs.find(x => x.id === currentId); document.getElementById('editId').value=s.id; document.getElementById('editName').value=s.name; document.getElementById('editUrl').value=s.url; document.getElementById('editThreads').value=s.threads||10; editModal.show(); }
-    async function saveSub() { const d = { id: document.getElementById('editId').value, name: document.getElementById('editName').value, url: document.getElementById('editUrl').value, threads: document.getElementById('editThreads').value }; await fetch('/api/subs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d)}); editModal.hide(); loadSubs(); }
+    function toggleFields() { const m=document.getElementById('editMode').value; document.getElementById('ef').classList.toggle('d-none', m!=='fixed'); document.getElementById('ei').classList.toggle('d-none', m!=='interval'); }
+    async function saveSub() { const d = { id: document.getElementById('editId').value, name: document.getElementById('editName').value, url: document.getElementById('editUrl').value, threads: document.getElementById('editThreads').value, schedule_mode: document.getElementById('editMode').value, fixed_times: document.getElementById('editTimes').value, interval_hours: document.getElementById('editHours').value, enabled: document.getElementById('editEnabled').checked }; await fetch('/api/subs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d)}); editModal.hide(); loadSubs(); }
     function startTask() { fetch('/api/start/' + currentId); }
     function stopTask() { fetch('/api/stop/' + currentId); }
     function showSettings() { settingsModal.show(); }
     async function saveGlobalSettings() { const h = document.getElementById('globalHwAccel').checked; await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({use_hwaccel: h}) }); settingsModal.hide(); }
     async function testHardware() { const out = document.getElementById('hwOutput'); out.innerText = "诊断中..."; const r = await fetch('/api/hw_test'); const d = await r.json(); out.innerText = d.output; }
-
     window.onload = loadSubs;
 </script>
 </body>
