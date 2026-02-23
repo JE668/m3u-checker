@@ -1,4 +1,4 @@
-import os, subprocess, json, threading, time, socket, datetime, uuid, csv
+import os, subprocess, json, threading, time, socket, datetime, uuid, csv, re
 import requests, urllib3, psutil
 from flask import Flask, render_template, request, jsonify, send_from_directory, make_response, redirect
 from urllib.parse import urlparse
@@ -52,7 +52,7 @@ def probe_stream(url, use_hw):
                         n, d = v['avg_frame_rate'].split('/')
                         fps = str(round(int(n)/int(d))) if int(d)>0 else "?"
                     except: pass
-                return {"res": f"{v.get('width','?')}x{v.get('height','?')}", "h": v.get('height', 0), "v_codec": v.get('codec_name', 'UNK').upper(), "a_codec": a.get('codec_name', 'UNK').upper(), "fps": fps, "br": f"{round(int(rb)/1024/1024, 2)}Mbps", "icon": icon}
+                return {"res": f"{v.get('width','?')}x{v.get('height','?')}", "h": v.get('height', 0), "v_codec": v.get('codec_name', 'UNK').upper(), "a_codec": a.get('codec_name', 'UNK').upper() if a else "无音频", "fps": fps, "br": f"{round(int(rb)/1024/1024, 2)}Mbps", "icon": icon}
         except: pass
         return None
     if use_hw:
@@ -86,6 +86,7 @@ def test_single_channel(sub_id, name, url, use_hw):
         resp.close()
         meta = probe_stream(url, use_hw)
         if not meta: raise Exception("ProbeFail")
+        
         geo = requests.get(f"http://ip-api.com/json/{socket.gethostbyname(urlparse(url).hostname)}?lang=zh-CN", timeout=5).json() if hp not in ip_cache else ip_cache[hp]
         city = geo.get('city', '未知') if isinstance(geo, dict) else "未知"
         with log_lock:
@@ -120,6 +121,7 @@ def run_task(sub_id):
     raw_channels = []
     try:
         r = requests.get(sub["url"], timeout=15, verify=False); r.encoding = r.apparent_encoding
+        cn = "未知频道"
         for line in r.text.split('\n'):
             line = line.strip()
             if "#EXTINF" in line: cn = line.split(',')[-1].strip()
@@ -127,9 +129,9 @@ def run_task(sub_id):
             elif "," in line and "http" in line:
                 p = line.split(','); raw_channels.append((p[0].strip(), p[1].strip()))
     except: pass
-    raw_channels = list(set(raw_channels)); subs_status[sub_id]["total"] = len(raw_channels)
+    raw_channels = list(set(raw_channels)); total_num = len(raw_channels); subs_status[sub_id]["total"] = total_num
     thread_num = int(sub.get("threads", 10))
-    subs_status[sub_id]["logs"].append(f"🚀 任务启动 | 总数: {len(raw_channels)} | 线程: {thread_num}")
+    subs_status[sub_id]["logs"].append(f"🎬 任务启动: {get_now()} | 总数: {total_num} | 硬件加速: {'ON' if use_hw else 'OFF'}")
     valid_raw = []
     with ThreadPoolExecutor(max_workers=thread_num) as executor:
         futures = [executor.submit(test_single_channel, sub_id, n, u, use_hw) for n, u in raw_channels]
@@ -137,7 +139,7 @@ def run_task(sub_id):
             if subs_status[sub_id]["stop_requested"]:
                 for fut in futures: fut.cancel(); break
             try:
-                res = f.result(timeout=45); 
+                res = f.result(timeout=50); 
                 if res: valid_raw.append(res)
             except: pass
     valid_list = [c for c in valid_raw if c['res_tag'] in res_filter]; valid_list.sort(key=lambda x: x['score'], reverse=True)
@@ -156,12 +158,23 @@ def index(): return render_template('index.html')
 @app.route('/api/sys_info')
 def sys_info():
     try:
-        # 获取GPU使用率尝试
         gpu = 0
         if os.path.exists("/sys/class/drm/card0/device/gpu_busy_percent"):
             with open("/sys/class/drm/card0/device/gpu_busy_percent", 'r') as f: gpu = int(f.read().strip())
         return jsonify({"cpu": psutil.cpu_percent(), "ram": psutil.virtual_memory().percent, "gpu": gpu, "gpu_active": any(s.get("running") for s in subs_status.values())})
-    except: return jsonify({"cpu": 0, "ram": 0, "gpu": 0, "gpu_active": False})
+    except: return jsonify({"cpu": 0, "ram": 0, "gpu": 0})
+@app.route('/api/network_test')
+def network_test():
+    res = {"v4": {"status": False, "ip": ""}, "v6": {"status": False, "ip": ""}}
+    try:
+        r4 = requests.get("https://api4.ipify.org?format=json", timeout=5).json()
+        res["v4"] = {"status": True, "ip": r4['ip']}
+    except: pass
+    try:
+        r6 = requests.get("https://api6.ipify.org?format=json", timeout=5).json()
+        res["v6"] = {"status": True, "ip": r6['ip']}
+    except: pass
+    return jsonify(res)
 @app.route('/api/subs', methods=['GET', 'POST'])
 def handle_subs():
     config = load_config()
@@ -176,9 +189,10 @@ def handle_subs():
 @app.route('/api/status/<sub_id>')
 def get_status(sub_id):
     info = subs_status.get(sub_id, {"running": False, "logs": [], "total":0, "current":0, "success":0, "blacklisted_hosts": set(), "analytics": {"res":{},"lat":{},"v_codec":{},"a_codec":{},"stability":{"success":0,"fail":0,"banned":0}}})
-    return jsonify({"running": info.get("running", False), "logs": info.get("logs")[-150:], "total": info.get("total", 0), "current": info.get("current", 0), "success": info.get("success", 0), "banned_count": len(info.get("blacklisted_hosts", [])), "analytics": info.get("analytics", {})})
+    return jsonify({"running": info.get("running", False), "logs": info.get("logs")[-150:], "total": info.get("total", 0), "current": info.get("current", 0), "success": info.get("success", 0), "banned_count": len(info.get("blacklisted_hosts", [])), "analytics": info.get("analytics")})
 @app.route('/api/start/<sub_id>')
-def start_api(sub_id): threading.Thread(target=run_task, args=(sub_id,)).start(); return jsonify({"status": "ok"})
+def start_api(sub_id):
+    threading.Thread(target=run_task, args=(sub_id,)).start(); return jsonify({"status": "ok"})
 @app.route('/api/stop/<sub_id>')
 def stop_api(sub_id):
     if sub_id in subs_status: subs_status[sub_id]["stop_requested"] = True
@@ -191,11 +205,13 @@ def hw_test():
         r = subprocess.run(['vainfo'], capture_output=True, text=True, timeout=5)
         out = r.stdout + r.stderr; ready = "va_openDriver() returns 0" in out
         codecs = []
-        mapping = {"H264":"H264","HEVC":"HEVC|H265","VP9":"VP9","MPEG2":"MPEG2"}
+        mapping = {"H.264":"H264","HEVC (H.265)":"HEVC|H265","VP9":"VP9","MPEG2":"MPEG2"}
         for k, v in mapping.items():
             if any(x in out.upper() for x in v.split('|')): codecs.append(k)
-        return jsonify({"status": "success" if ready else "error", "message": "GPU硬件加速已就绪" if ready else "硬件驱动连接异常", "codecs": codecs, "raw": out})
+        return jsonify({"status": "success" if ready else "error", "message": "✅ GPU加速已就绪" if ready else "❌ 驱动环境异常", "codecs": codecs, "raw": out})
     except Exception as e: return jsonify({"status": "error", "raw": str(e)})
+@app.route('/api/subs/delete/<sub_id>')
+def delete_sub(sub_id): config = load_config(); config["subscriptions"] = [s for s in config["subscriptions"] if s["id"] != sub_id]; save_config(config); return jsonify({"status": "ok"})
 @app.route('/sub/<sub_id>.<ext>')
 def get_sub_file(sub_id, ext): return send_from_directory(OUTPUT_DIR, f"{sub_id}.{ext}")
 
