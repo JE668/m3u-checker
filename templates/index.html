@@ -15,11 +15,11 @@
             --primary-grad: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
             --success-grad: linear-gradient(90deg, #10b981 0%, #34d399 50%, #10b981 100%);
             --danger-grad: linear-gradient(90deg, #dc2626 0%, #f43f5e 100%);
-            --warning-grad: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
             --glass: rgba(255, 255, 255, 0.85);
         }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; height: 100vh; overflow: hidden; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; height: 100vh; overflow: hidden; color: #1e293b; }
         .sidebar { width: 320px; background: var(--sidebar-grad); height: 100vh; position: fixed; color: white; z-index: 100; box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
+        .sidebar-header { padding: 40px 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .sub-item { padding: 18px 25px; cursor: pointer; transition: 0.3s; margin: 8px 15px; border-radius: 20px; background: rgba(255,255,255,0.06); }
         .sub-item.active { background: white !important; color: #4f46e5 !important; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left: 6px solid #f59e0b; }
         .main { margin-left: 320px; padding: 30px; height: 100vh; overflow-y: auto; }
@@ -28,7 +28,7 @@
         .stat-value { font-size: 2.8rem; font-weight: 900; letter-spacing: -1px; }
 
         .btn-grad { border: none !important; color: #ffffff !important; border-radius: 16px; font-weight: 700; padding: 12px 24px; transition: 0.3s; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15); }
-        .btn-grad:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); opacity: 0.9; color: #fff !important; }
+        .btn-grad:hover { transform: translateY(-3px); opacity: 0.9; color: #fff !important; }
         .btn-primary-grad { background: var(--primary-grad) !important; }
         .btn-success-grad { background: var(--success-grad) !important; }
         .btn-danger-grad { background: var(--danger-grad) !important; }
@@ -45,7 +45,9 @@
         @keyframes shimmer { 0% { background-position: 100% 0%; } 100% { background-position: -100% 0%; } }
         
         .sys-info-bar { font-size: 11px; color: #cbd5e1; margin-top: 20px; padding: 0 20px; }
-        .sub-disabled { opacity: 0.4; filter: grayscale(1); }
+        .res-tag-label { padding: 6px 15px; border-radius: 12px; background: #f1f5f9; cursor: pointer; font-weight: 700; font-size: 12px; border: 1px solid #e2e8f0; margin-right: 5px; }
+        .res-tag-check:checked + .res-tag-label { background: #4f46e5; color: white; border-color: #4f46e5; }
+        .res-tag-check { display: none; }
     </style>
 </head>
 <body>
@@ -70,7 +72,7 @@
 <div class="main">
     <div id="noSelect" class="h-100 d-flex flex-column align-items-center justify-content-center opacity-25 text-center">
         <i class="bi bi-layers display-1 mb-3"></i>
-        <h2 class="fw-800">Analytics Center</h2>
+        <h2 class="fw-800">Analytics Dashboard</h2>
         <p>选择一个任务，开启可视化探测仪表盘</p>
     </div>
 
@@ -86,11 +88,11 @@
         </div>
 
         <div class="row g-4 mb-4 text-center">
-            <div class="col" style="min-width: 200px;"><div class="glass-card"><i class="bi bi-list-task stat-icon-bg"></i><div>总频道</div><div id="statTotal" class="stat-value">0</div></div></div>
+            <div class="col" style="min-width: 200px;"><div class="glass-card"><i class="bi bi-list-task stat-icon-bg"></i><div>总频道</div><div id="statTotal" class="stat-value text-dark">0</div></div></div>
             <div class="col" style="min-width: 200px;"><div class="glass-card text-info"><i class="bi bi-lightning stat-icon-bg"></i><div>已处理</div><div id="statCurrent" class="stat-value">0</div></div></div>
             <div class="col" style="min-width: 200px;"><div class="glass-card text-success"><i class="bi bi-check2-circle stat-icon-bg"></i><div>有效源</div><div id="statSuccess" class="stat-value">0</div></div></div>
             <div class="col" style="min-width: 200px;"><div class="glass-card text-warning"><i class="bi bi-shield-slash stat-icon-bg"></i><div>已熔断</div><div id="statBanned" class="stat-value">0</div></div></div>
-            <div class="col" style="min-width: 200px;"><div class="glass-card text-primary"><i class="bi bi-graph-up stat-icon-bg"></i><div>成功率</div><div id="statRate" class="stat-value">0%</div></div></div>
+            <div class="col" style="min-width: 200px;"><div class="glass-card text-primary"><i class="bi bi-graph-up stat-icon-bg"></i><div>有效率</div><div id="statRate" class="stat-value">0%</div></div></div>
         </div>
 
         <div class="row g-4 mb-4">
@@ -101,22 +103,34 @@
         <div class="row g-4">
             <div class="col-lg-7">
                 <div class="glass-card h-100 mb-0">
-                    <div class="d-flex justify-content-between mb-3"><h6 class="fw-bold">探测进度 <span id="pText" class="badge bg-primary rounded-pill">0%</span></h6></div>
+                    <div class="d-flex justify-content-between mb-3"><h6 class="fw-bold">实测日志流 <span id="pText" class="badge bg-primary rounded-pill">0%</span></h6></div>
                     <div class="progress mb-4 shadow-sm"><div id="pBar" class="progress-bar"></div></div>
                     <div id="console" class="console"></div>
                 </div>
             </div>
             <div class="col-lg-5">
-                <div class="glass-card p-3 mb-4 text-center"><h6>画质占比 / 稳定性分析</h6><div style="height:250px; display:flex;"><div style="flex:1"><canvas id="resChart"></canvas></div><div style="flex:1"><canvas id="stabChart"></canvas></div></div></div>
-                <div class="glass-card p-3 mb-0 text-center"><h6>延迟分布 / 编码构成</h6><div style="height:250px; display:flex;"><div style="flex:1"><canvas id="latChart"></canvas></div><div style="flex:1"><canvas id="codecChart"></canvas></div></div></div>
+                <div class="glass-card p-3 mb-4 text-center" style="height: 280px;">
+                    <h6>画质占比 / 线路稳定性</h6>
+                    <div style="height:200px; display:flex;">
+                        <div style="flex:1; position:relative;"><canvas id="resChart"></canvas></div>
+                        <div style="flex:1; position:relative;"><canvas id="stabChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="glass-card p-3 mb-0 text-center" style="height: 280px;">
+                    <h6>延迟分布 / 编码构成</h6>
+                    <div style="height:200px; display:flex;">
+                        <div style="flex:1; position:relative;"><canvas id="latChart"></canvas></div>
+                        <div style="flex:1; position:relative;"><canvas id="codecChart"></canvas></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal 任务配置 (保持不变但修复颜色) -->
+<!-- Modal 部分保持 -->
 <div class="modal fade" id="editModal" data-bs-backdrop="static" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-4" style="border-radius:30px;">
-    <h5 class="fw-800 mb-4 text-center">任务配置</h5>
+    <h5 class="fw-800 mb-4 text-center">任务参数配置</h5>
     <input type="hidden" id="editId">
     <div class="mb-3"><label class="fw-bold small text-muted">名称</label><input type="text" id="editName" class="form-control bg-light border-0 rounded-3"></div>
     <div class="mb-3"><label class="fw-bold small text-muted">URL</label><input type="text" id="editUrl" class="form-control bg-light border-0 rounded-3"></div>
@@ -124,8 +138,8 @@
     <div class="row g-2 mb-3"><div class="col-6"><label class="fw-bold small text-muted">线程</label><input type="number" id="editThreads" class="form-control bg-light border-0 rounded-3" value="10"></div><div class="col-6"><label class="fw-bold small text-muted">模式</label><select id="editMode" class="form-select bg-light border-0 rounded-3" onchange="toggleFields()"><option value="none">手动</option><option value="fixed">定时</option><option value="interval">间隔</option></select></div></div>
     <div id="ef" class="mb-3 d-none"><input type="text" id="editTimes" class="form-control rounded-3" placeholder="08:00, 20:00"></div>
     <div id="ei" class="mb-3 d-none"><input type="number" id="editHours" class="form-control rounded-3" placeholder="12"></div>
-    <div class="form-check form-switch mb-4"><input class="form-check-input" type="checkbox" id="editEnabled" checked><label class="form-check-label fw-bold">启用计划</label></div>
-    <div class="d-flex justify-content-between pt-3 border-top"><button class="btn btn-outline-danger" style="border-radius:12px; font-weight:700" onclick="deleteSub()" id="delBtn">移除</button><button class="btn btn-grad btn-primary-grad px-5" onclick="saveSub()">保存同步</button></div>
+    <div class="form-check form-switch mb-4"><input class="form-check-input" type="checkbox" id="editEnabled" checked><label class="form-check-label fw-bold">启用此计划</label></div>
+    <div class="d-flex justify-content-between pt-3 border-top"><button class="btn btn-outline-danger" style="border-radius:12px; font-weight:700" onclick="deleteSub()" id="delBtn">移除源</button><button class="btn btn-grad btn-primary-grad px-5" onclick="saveSub()">保存同步</button></div>
 </div></div></div>
 
 <div class="modal fade" id="settingsModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-4" style="border-radius:30px;"><h5 class="fw-800 mb-4 text-center">系统配置</h5><div class="d-flex align-items-center justify-content-between mb-3 bg-primary bg-opacity-10 p-3 rounded-4"><div><h6 class="fw-bold mb-1">GPU 硬件加速</h6></div><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="globalHwAccel" style="width:50px; height:25px;"></div></div><div class="mb-3"><label class="fw-bold small text-muted">EPG 接口</label><input type="text" id="globalEpg" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3"><label class="fw-bold small text-muted">台标路径</label><input type="text" id="globalLogo" class="form-control bg-light border-0 rounded-3"></div><div class="hw-console mb-3" id="hwOutput">等待测试驱动...</div><button class="btn btn-dark w-100 mb-4 rounded-3 py-2" onclick="testHardware()">运行诊断</button><button class="btn btn-grad btn-primary-grad w-100 py-3" onclick="saveGlobalSettings()">保存并关闭</button></div></div></div>
@@ -144,7 +158,7 @@
         const ctxS = document.getElementById('stabChart').getContext('2d');
         stabC = new Chart(ctxS, { type:'pie', data:{ labels:['成功','失败','熔断'], datasets:[{ data:[0,0,0], backgroundColor:['#10b981','#f43f5e','#f59e0b'], borderWidth:0 }] }, options:{ plugins:{ legend:{ display:false } }, maintainAspectRatio:false } });
         const ctxL = document.getElementById('latChart').getContext('2d');
-        latC = new Chart(ctxL, { type:'bar', data:{ labels:['<100ms','<500ms','>500ms'], datasets:[{ data:[0,0,0], backgroundColor:'#6366f1', borderRadius:8 }] }, options:{ scales:{ y:{ display:false }, x:{ display:false } }, plugins:{ legend:{ display:false } }, maintainAspectRatio:false } });
+        latC = new Chart(ctxL, { type:'bar', data:{ labels:['<100ms','<500ms','>500ms'], datasets:[{ label:'数量', data:[0,0,0], backgroundColor:'#6366f1', borderRadius:8 }] }, options:{ scales:{ y:{ display:false }, x:{ display:false } }, plugins:{ legend:{ display:false } }, maintainAspectRatio:false } });
         const ctxC = document.getElementById('codecChart').getContext('2d');
         codecC = new Chart(ctxC, { type:'bar', data:{ labels:['H264','HEVC','MPEG2','OTHER'], datasets:[{ data:[0,0,0,0], backgroundColor:'#a855f7', borderRadius:8 }] }, options:{ indexAxis:'y', scales:{ y:{ display:false }, x:{ display:false } }, plugins:{ legend:{ display:false } }, maintainAspectRatio:false } });
     }
@@ -161,37 +175,32 @@
         const s = subs.find(x => x.id === id); document.getElementById('viewName').innerText = s.name; document.getElementById('viewUrl').innerText = s.url;
         document.getElementById('m3uUrl').value = `${window.location.origin}/sub/${id}.m3u`;
         document.getElementById('txtUrl').value = `${window.location.origin}/sub/${id}.txt`;
-        initCharts(); loadSubs(); if(pollTimer) clearInterval(pollTimer); pollTimer = setInterval(updateStatus, 1500);
+        initCharts(); loadSubs(); 
+        if(pollTimer) clearInterval(pollTimer); pollTimer = setInterval(updateStatus, 1500);
     }
 
     async function updateStatus() {
         if(!currentId) return;
         const res = await fetch('/api/status/' + currentId); const data = await res.json();
-        document.getElementById('statTotal').innerText = data.total;
-        document.getElementById('statCurrent').innerText = data.current;
-        document.getElementById('statSuccess').innerText = data.success;
-        document.getElementById('statBanned').innerText = data.banned_count || 0;
+        document.getElementById('statTotal').innerText = data.total; document.getElementById('statCurrent').innerText = data.current;
+        document.getElementById('statSuccess').innerText = data.success; document.getElementById('statBanned').innerText = data.banned_count || 0;
         document.getElementById('statRate').innerText = (data.current > 0 ? Math.round(data.success/data.current*100) : 0) + '%';
         document.getElementById('pText').innerText = Math.round(data.current/data.total*100 || 0) + '%';
         document.getElementById('pBar').style.width = Math.round(data.current/data.total*100 || 0) + '%';
-        
         if(data.analytics && resC) {
             resC.data.datasets[0].data = [data.analytics.res['4K']||0, data.analytics.res['1080P']||0, data.analytics.res['720P']||0, data.analytics.res['SD']||0]; resC.update('none');
             latC.data.datasets[0].data = [data.analytics.lat['<100ms']||0, data.analytics.lat['<500ms']||0, data.analytics.lat['>500ms']||0]; latC.update('none');
             stabC.data.datasets[0].data = [data.analytics.stability.success, data.analytics.stability.fail, data.analytics.stability.banned]; stabC.update('none');
             const cd = data.analytics.codec; codecC.data.datasets[0].data = [cd['H264']||0, cd['HEVC']||0, cd['MPEG2']||0, cd['OTHER']||0]; codecC.update('none');
         }
-        document.getElementById('console').innerHTML = data.logs.map(l => {
-            let cls = ""; if(l.includes('✅')) cls = "log-success"; else if(l.includes('❌')) cls = "log-fail"; else if(l.includes('⚠️')) cls = "log-warning";
-            return `<div class="log-line ${cls}">${l}</div>`;
-        }).join('');
+        document.getElementById('console').innerHTML = data.logs.map(l => `<div class="log-line ${l.includes('✅')?'log-success':(l.includes('❌')?'log-fail':'log-warning')}">${l}</div>`).join('');
         if(autoScroll) conBox.scrollTop = 999999;
         const rb = document.getElementById('runBtn'), sb = document.getElementById('stopBtn');
         if(data.running){ rb.classList.add('d-none'); sb.classList.remove('d-none'); } else { rb.classList.remove('d-none'); sb.classList.add('d-none'); }
         const sres = await fetch('/api/sys_info'); const sdata = await sres.json();
         document.getElementById('sysCpu').innerText = sdata.cpu + '%'; document.getElementById('cpuBar').style.width = sdata.cpu + '%';
         document.getElementById('sysRam').innerText = sdata.ram + '%'; document.getElementById('ramBar').style.width = sdata.ram + '%';
-        document.getElementById('sysGpu').innerText = sdata.gpu_active ? "BUSY" : "IDLE"; document.getElementById('sysGpu').style.color = sdata.gpu_active ? "#fbbf24" : "#64748b";
+        document.getElementById('sysGpu').innerText = sdata.gpu_active ? "ACTIVE" : "IDLE"; document.getElementById('sysGpu').style.color = sdata.gpu_active ? "#fbbf24" : "#64748b";
     }
 
     function showAddModal() { document.getElementById('editId').value=""; document.getElementById('editName').value=""; document.getElementById('editUrl').value=""; ["sd", "720", "1080", "4k", "8k"].forEach(r => document.getElementById('res_'+r).checked = true); editModal.show(); }
