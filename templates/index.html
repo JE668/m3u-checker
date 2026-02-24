@@ -18,10 +18,10 @@
             --glass: rgba(255, 255, 255, 0.85);
         }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; height: 100vh; overflow: hidden; color: #1e293b; }
-        .sidebar { width: 320px; background: var(--sidebar-grad); height: 100vh; position: fixed; color: white; z-index: 100; box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
+        .sidebar { width: 320px; background: var(--sidebar-grad); height: 100vh; position: fixed; color: white; z-index: 100; box-shadow: 10px 0 30px rgba(0,0,0,0.2); }
         .sidebar-header { padding: 30px 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .sub-list { height: calc(100vh - 400px); overflow-y: auto; padding: 10px 0; }
-        .sub-item { padding: 18px 25px; cursor: pointer; transition: 0.3s; margin: 8px 15px; border-radius: 20px; background: rgba(255,255,255,0.05); border: 1px solid transparent; }
+        .sub-list { height: calc(100vh - 420px); overflow-y: auto; padding: 10px 0; }
+        .sub-item { padding: 18px 25px; cursor: pointer; transition: 0.3s; margin: 8px 15px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px solid transparent; }
         .sub-item:hover { background: rgba(255,255,255,0.12); transform: translateY(-2px); }
         .sub-item.active { background: white !important; color: #4f46e5 !important; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border-left: 6px solid #f59e0b; }
         
@@ -50,7 +50,7 @@
         .log-fail { color: #fb7185 !important; background: rgba(248, 113, 113, 0.08); border-left: 4px solid #f43f5e; }
         .log-warning { color: #fbbf24 !important; background: rgba(245, 158, 11, 0.15); border-left: 4px solid #f59e0b; font-weight: bold; }
         
-        .scroll-tag { position: absolute; bottom: 35px; right: 40px; background: #3b82f6; color: white; padding: 10px 22px; border-radius: 50px; font-size: 11px; opacity: 0; transition: 0.4s; cursor: pointer; z-index: 100; display: none; border: none; box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4); }
+        .scroll-tag { position: absolute; bottom: 35px; right: 40px; background: #3b82f6; color: white; padding: 10px 22px; border-radius: 50px; font-size: 12px; opacity: 0; transition: 0.4s; cursor: pointer; z-index: 100; display: none; border: none; box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4); }
         .scroll-tag.show { opacity: 1; display: block; }
         .sys-info-box { font-size: 11px; color: #cbd5e1; margin-top: 25px; padding: 0 25px; }
         .chart-card { padding: 15px !important; }
@@ -116,23 +116,20 @@
             <div class="col"><div class="glass-card text-primary mb-0"><i class="bi bi-graph-up stat-icon-bg"></i><div class="small fw-bold opacity-50">有效率</div><div id="statRate" class="stat-value">0%</div></div></div>
         </div>
 
-        <!-- 4. Charts (3x2 矩阵重构) -->
+        <!-- 4. Charts (5 Doughnuts) -->
         <div class="row g-3 mb-4">
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:210px;"><h6>画质占比</h6><div style="height:150px"><canvas id="resChart"></canvas></div></div></div>
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:210px;"><h6>稳定性分析</h6><div style="height:150px"><canvas id="stabChart"></canvas></div></div></div>
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:210px;"><h6>延迟分布</h6><div style="height:150px"><canvas id="latChart"></canvas></div></div></div>
-        </div>
-        <div class="row g-3 mb-5">
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:210px;"><h6>视频编码</h6><div style="height:150px"><canvas id="vCodecChart"></canvas></div></div></div>
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:210px;"><h6>音频编码</h6><div style="height:150px"><canvas id="aCodecChart"></canvas></div></div></div>
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:210px;"><h6>Host 状态分析</h6><div style="height:150px"><canvas id="hostChart"></canvas></div></div></div>
+            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>画质占比</h6><div style="height:140px"><canvas id="resChart"></canvas></div></div></div>
+            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>稳定性</h6><div style="height:140px"><canvas id="stabChart"></canvas></div></div></div>
+            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>响应延迟</h6><div style="height:140px"><canvas id="latChart"></canvas></div></div></div>
+            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>视频编码</h6><div style="height:140px"><canvas id="vCodecChart"></canvas></div></div></div>
+            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>音频编码</h6><div style="height:140px"><canvas id="aCodecChart"></canvas></div></div></div>
         </div>
 
         <!-- 5. Log -->
         <div class="glass-card p-4 mb-0">
             <div class="d-flex justify-content-between mb-3"><h6 class="fw-bold">实测探测日志流 <span id="pText" class="badge bg-primary rounded-pill px-3">0%</span></h6></div>
             <div class="progress mb-4 shadow-sm"><div id="pBar" class="progress-bar"></div></div>
-            <div class="console-wrapper"><div id="console" class="console shadow-lg"></div><button id="scrollTag" class="scroll-tag" onclick="scrollToBottom()">⬇️ 恢复追踪最新日志</button></div>
+            <div class="console-wrapper"><div id="console" class="console shadow-lg"></div><button id="scrollTag" class="scroll-tag" onclick="scrollToBottom()">⬇️ 恢复追踪</button></div>
         </div>
     </div>
 </div>
@@ -159,7 +156,7 @@
     <div class="d-flex justify-content-between pt-3 border-top"><button class="btn btn-outline-danger" style="border-radius:14px; font-weight:700" id="delBtn">移除任务</button><button class="btn btn-grad btn-primary-grad px-5" id="saveSubBtn">保存同步</button></div>
 </div></div></div>
 
-<div class="modal fade" id="settingsModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-5" style="border-radius:35px;"><h5 class="fw-800 mb-4 text-center">系统设置面板</h5><div class="d-flex align-items-center justify-content-between mb-4 bg-primary bg-opacity-10 p-4 rounded-4"><div><h6 class="fw-bold mb-1">GPU 硬件加速探测</h6></div><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="globalHwAccel" checked style="width:50px; height:25px;"></div></div><div class="mb-3"><label class="fw-bold small text-muted">EPG 接口</label><input type="text" id="globalEpg" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3"><label class="fw-bold small text-muted">台标路径</label><input type="text" id="globalLogo" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3 bg-light p-3 rounded-4 small d-flex justify-content-between align-items-center"><span>V4: <b id="ipV4">--</b> | V6: <b id="ipV6">--</b></span><button class="btn btn-xs btn-dark py-1" onclick="testNetwork()">测试网络</button></div><div id="hwResult" class="mb-3 d-none animate__animated animate__fadeIn"><div id="hwStatusMsg" class="fw-bold mb-1 text-center"></div><div style="max-height:150px;overflow-y:auto;"><table class="table table-sm table-dark x-small rounded-3 overflow-hidden"><thead><tr><th>Codec</th><th>Status</th></tr></thead><tbody id="hwTbody"></tbody></table></div></div><div class="hw-console mb-3" id="hwOutput">等待驱动诊断...</div><button class="btn btn-dark w-100 mb-4 rounded-3 py-2" onclick="testHardware()">开始 VA-API 诊断</button><button class="btn btn-grad btn-primary-grad w-100 py-3 shadow-lg" id="saveGlobalSettingsBtn">应用并保存配置</button></div></div></div>
+<div class="modal fade" id="settingsModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-5" style="border-radius:35px;"><h5 class="fw-800 mb-4 text-center">系统设置面板</h5><div class="d-flex align-items-center justify-content-between mb-4 bg-primary bg-opacity-10 p-4 rounded-4"><div><h6 class="fw-bold mb-1">GPU 硬件加速探测</h6></div><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="globalHwAccel" checked style="width:50px; height:25px;"></div></div><div class="mb-3"><label class="fw-bold small text-muted">EPG 接口</label><input type="text" id="globalEpg" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3"><label class="fw-bold small text-muted">台标路径</label><input type="text" id="globalLogo" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3 bg-light p-3 rounded-4 small d-flex justify-content-between align-items-center"><span>V4: <b id="ipV4">--</b> | V6: <b id="ipV6">--</b></span><button class="btn btn-xs btn-dark py-1" onclick="testNetwork()">网络测试</button></div><div id="hwResult" class="mb-3 d-none animate__animated animate__fadeIn"><div id="hwStatusMsg" class="fw-bold mb-1 text-center"></div><div style="max-height:150px;overflow-y:auto;"><table class="table table-sm table-dark x-small rounded-3 overflow-hidden"><thead><tr><th>Codec</th><th>Status</th></tr></thead><tbody id="hwTbody"></tbody></table></div></div><div class="hw-console mb-3" id="hwOutput">等待驱动诊断...</div><button class="btn btn-dark w-100 mb-4 rounded-3 py-2" onclick="testHardware()">开始 VA-API 诊断</button><button class="btn btn-grad btn-primary-grad w-100 py-3 shadow-lg" id="saveGlobalSettingsBtn">应用并保存配置</button></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -167,7 +164,7 @@
     const editModal = new bootstrap.Modal(document.getElementById('editModal')), settingsModal = new bootstrap.Modal(document.getElementById('settingsModal')), conBox = document.getElementById('console');
 
     conBox.addEventListener('scroll', () => { 
-        const isAtBottom = conBox.scrollHeight - conBox.scrollTop - conBox.clientHeight < 120;
+        const isAtBottom = conBox.scrollHeight - conBox.scrollTop - conBox.clientHeight < 100;
         autoScroll = isAtBottom;
         document.getElementById('scrollTag').classList.toggle('show', !autoScroll);
     });
@@ -175,15 +172,14 @@
     function scrollToBottom() { conBox.scrollTop = conBox.scrollHeight; autoScroll = true; }
 
     function initCharts() {
-        Object.values(charts).forEach(c => c && c.destroy());
+        Object.values(charts).forEach(c => c.destroy());
         const tipOpt = { callbacks: { label: (ctx) => { let sum = ctx.dataset.data.reduce((a,b)=>a+b,0); return `${ctx.label}: ${ctx.raw} (${sum>0?(ctx.raw/sum*100).toFixed(1):0}%)`; } } };
-        const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tipOpt }, cutout: '72%' };
+        const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tipOpt }, cutout: '75%' };
         charts.res = new Chart(document.getElementById('resChart'), { type:'doughnut', data:{ labels:['4K','1080P','720P','SD'], datasets:[{ data:[0,0,0,0], backgroundColor:['#8b5cf6','#3b82f6','#10b981','#f59e0b'], borderWidth:0 }] }, options: opt });
         charts.stab = new Chart(document.getElementById('stabChart'), { type:'doughnut', data:{ labels:['成功','失败','熔断'], datasets:[{ data:[0,0,0], backgroundColor:['#10b981','#f43f5e','#f59e0b'], borderWidth:0 }] }, options: opt });
         charts.lat = new Chart(document.getElementById('latChart'), { type:'doughnut', data:{ labels:['<100ms','<500ms','>500ms'], datasets:[{ data:[0,0,0], backgroundColor:['#6366f1','#3b82f6','#94a3b8'], borderWidth:0 }] }, options: opt });
         charts.vCodec = new Chart(document.getElementById('vCodecChart'), { type:'doughnut', data:{ labels:[], datasets:[{ data:[], backgroundColor:['#ec4899','#8b5cf6','#3b82f6','#64748b','#a855f7'], borderWidth:0 }] }, options: opt });
         charts.aCodec = new Chart(document.getElementById('aCodecChart'), { type:'doughnut', data:{ labels:[], datasets:[{ data:[], backgroundColor:['#10b981','#3b82f6','#f59e0b','#94a3b8','#ec4899','#8b5cf6'], borderWidth:0 }] }, options: opt });
-        charts.host = new Chart(document.getElementById('hostChart'), { type:'doughnut', data:{ labels:['活跃Host','熔断Host'], datasets:[{ data:[0,0], backgroundColor:['#3b82f6','#dc2626'], borderWidth:0 }] }, options: opt });
     }
 
     async function loadSubs() {
@@ -212,17 +208,12 @@
             document.getElementById('statRate').innerText = (data.current > 0 ? Math.round(data.success/data.current*100) : 0) + '%';
             document.getElementById('pText').innerText = Math.round(data.current/data.total*100 || 0) + '%';
             document.getElementById('pBar').style.width = Math.round(data.current/data.total*100 || 0) + '%';
-            
             if(data.analytics && charts.res) {
                 charts.res.data.datasets[0].data = [data.analytics.res['4K']||0, data.analytics.res['1080P']||0, data.analytics.res['720P']||0, data.analytics.res['SD']||0]; charts.res.update('none');
                 charts.lat.data.datasets[0].data = [data.analytics.lat['<100ms']||0, data.analytics.lat['<500ms']||0, data.analytics.lat['>500ms']||0]; charts.lat.update('none');
                 charts.stab.data.datasets[0].data = [data.analytics.stability.success, data.analytics.stability.fail, data.analytics.stability.banned]; charts.stab.update('none');
-                
                 const vc = data.analytics.v_codec; charts.vCodec.data.labels = Object.keys(vc); charts.vCodec.data.datasets[0].data = Object.values(vc); charts.vCodec.update('none');
                 const ac = data.analytics.a_codec; charts.aCodec.data.labels = Object.keys(ac); charts.aCodec.data.datasets[0].data = Object.values(ac); charts.aCodec.update('none');
-                
-                const hostTotal = (data.total > 0) ? Math.max(1, Math.round(data.total/100)) : 1; // 估算
-                charts.host.data.datasets[0].data = [100 - data.banned_count, data.banned_count]; charts.host.update('none');
             }
             document.getElementById('console').innerHTML = data.logs.map(l => {
                 let c = ""; if(l.includes('✅')) c="log-success"; else if(l.includes('❌')) c="log-fail"; else if(l.includes('⚠️')) c="log-warning";
@@ -235,7 +226,7 @@
             document.getElementById('sysCpu').innerText = sdata.cpu + '%'; document.getElementById('cpuBar').style.width = sdata.cpu + '%';
             document.getElementById('sysRam').innerText = sdata.ram + '%'; document.getElementById('ramBar').style.width = sdata.ram + '%';
             document.getElementById('sysGpuVal').innerText = sdata.gpu + '%'; document.getElementById('gpuBar').style.width = sdata.gpu + '%';
-            document.getElementById('sysGpu').innerText = sdata.gpu_active ? "ACTIVE" : "IDLE"; document.getElementById('sysGpu').style.color = sdata.gpu_active ? "#fbbf24" : "#cbd5e1";
+            document.getElementById('sysGpu').innerText = sdata.gpu_active ? "ACTIVE" : "IDLE"; document.getElementById('sysGpu').style.color = sdata.gpu_active ? "#fbbf24" : "#64748b";
         } catch(e) {}
     }
 
@@ -249,28 +240,19 @@
     async function testHardware() { 
         const out = document.getElementById('hwOutput'); out.innerText = "诊断中..."; 
         const r = await fetch('/api/hw_test'); const d = await r.json(); 
-        out.innerText = d.raw; document.getElementById('hwResult').classList.remove('d-none');
+        out.innerText = d.raw; 
+        document.getElementById('hwResult').classList.remove('d-none');
         document.getElementById('hwStatusMsg').innerText = d.message;
         document.getElementById('hwStatusMsg').style.color = d.status === "success" ? "#10b981" : "#ef4444";
         document.getElementById('hwTbody').innerHTML = d.codecs.map(c => `<tr><td>${c}</td><td>✅</td></tr>`).join('');
     }
 
-    document.getElementById('addNewTaskBtn').onclick = () => { 
-        document.getElementById('editId').value=""; document.getElementById('editName').value=""; document.getElementById('editUrl').value=""; 
-        ["sd", "720p", "1080p", "4k", "8k"].forEach(t => document.getElementById('res_'+t).checked = true);
-        document.getElementById('delBtn').classList.add('d-none'); editModal.show(); 
-    };
+    document.getElementById('addNewTaskBtn').onclick = () => { document.getElementById('editId').value=""; document.getElementById('editName').value=""; document.getElementById('editUrl').value=""; ["sd", "720p", "1080p", "4k", "8k"].forEach(t => document.getElementById('res_'+t).checked = true); editModal.show(); };
     document.getElementById('saveSubBtn').onclick = saveSub;
     document.getElementById('saveGlobalSettingsBtn').onclick = saveGlobalSettings;
-    document.getElementById('delBtn').onclick = async () => { if(confirm('⚠️ 确认彻底删除任务？')){ await fetch('/api/subs/delete/'+document.getElementById('editId').value); editModal.hide(); currentId=null; document.getElementById('dashboard').classList.add('d-none'); loadSubs(); } };
+    document.getElementById('delBtn').onclick = async () => { if(confirm('⚠️ 确认删除？')){ await fetch('/api/subs/delete/'+document.getElementById('editId').value); editModal.hide(); currentId=null; document.getElementById('dashboard').classList.add('d-none'); loadSubs(); } };
 
-    function editCurrent() { 
-        const s = subs.find(x => x.id === currentId); if(!s) return;
-        document.getElementById('editId').value=s.id; document.getElementById('editName').value=s.name; document.getElementById('editUrl').value=s.url; 
-        document.getElementById('editThreads').value=s.threads||10; document.getElementById('editEnabled').checked = s.enabled!==false;
-        ["sd", "720p", "1080p", "4k", "8k"].forEach(r => document.getElementById('res_'+r).checked = (s.res_filter||[]).includes(r));
-        document.getElementById('delBtn').classList.remove('d-none'); toggleFields(); editModal.show(); 
-    }
+    function editCurrent() { const s = subs.find(x => x.id === currentId); if(!s) return; document.getElementById('editId').value=s.id; document.getElementById('editName').value=s.name; document.getElementById('editUrl').value=s.url; document.getElementById('editThreads').value=s.threads||10; document.getElementById('editEnabled').checked = s.enabled!==false; ["sd", "720p", "1080p", "4k", "8k"].forEach(r => document.getElementById('res_'+r).checked = (s.res_filter||[]).includes(r)); editModal.show(); }
     function toggleFields() { const m=document.getElementById('editMode').value; document.getElementById('ef').classList.toggle('d-none', m!=='fixed'); document.getElementById('ei').classList.toggle('d-none', m!=='interval'); }
     async function saveSub() { const f = []; ["sd", "720p", "1080p", "4k", "8k"].forEach(t => { if(document.getElementById('res_'+t).checked) f.push(t); }); const d = { id: document.getElementById('editId').value, name: document.getElementById('editName').value, url: document.getElementById('editUrl').value, threads: document.getElementById('editThreads').value, schedule_mode: document.getElementById('editMode').value, fixed_times: document.getElementById('editTimes').value, interval_hours: document.getElementById('editHours').value, enabled: document.getElementById('editEnabled').checked, res_filter: f }; await fetch('/api/subs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d)}); editModal.hide(); loadSubs(); }
     function startTask() { if(currentId) fetch('/api/start/' + currentId); autoScroll = true; }
