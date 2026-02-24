@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>m3u-checker Pro | Dashboard</title>
+    <title>m3u-checker Pro | Pro Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -18,9 +18,9 @@
             --glass: rgba(255, 255, 255, 0.85);
         }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; height: 100vh; overflow: hidden; color: #1e293b; }
-        .sidebar { width: 320px; background: var(--sidebar-grad); height: 100vh; position: fixed; color: white; z-index: 100; box-shadow: 10px 0 30px rgba(0,0,0,0.2); }
+        .sidebar { width: 320px; background: var(--sidebar-grad); height: 100vh; position: fixed; color: white; z-index: 100; box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
         .sidebar-header { padding: 30px 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .sub-list { height: calc(100vh - 380px); overflow-y: auto; padding: 10px 0; }
+        .sub-list { height: calc(100vh - 420px); overflow-y: auto; padding: 10px 0; }
         .sub-item { padding: 18px 25px; cursor: pointer; transition: 0.3s; margin: 8px 15px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px solid transparent; }
         .sub-item:hover { background: rgba(255,255,255,0.12); transform: translateY(-2px); }
         .sub-item.active { background: white !important; color: #4f46e5 !important; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border-left: 6px solid #f59e0b; }
@@ -39,7 +39,7 @@
 
         .progress { height: 18px; border-radius: 50px; background: #e2e8f0; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
         .progress-bar { background: var(--success-grad); background-size: 200% 100%; animation: shimmer 2s linear infinite; border-radius: 50px; }
-        @keyframes shimmer { 0% { background-position: 100% 0%; } 100% { background-position: -200% 0%; } }
+        @keyframes shimmer { 0% { background-position: 100% 0%; } 100% { background-position: -100% 0%; } }
 
         .console { background: #0f172a; color: #f1f5f9; height: 500px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 13px; padding: 25px; border-radius: 28px; border: 4px solid #1e293b; box-shadow: inset 0 4px 15px rgba(0,0,0,0.5); }
         .log-line { margin-bottom: 5px; padding: 6px 12px; border-radius: 8px; border-bottom: 1px solid rgba(255,255,255,0.03); }
@@ -113,16 +113,13 @@
             <div class="col"><div class="glass-card text-primary mb-0"><i class="bi bi-graph-up stat-icon-bg"></i><div class="small fw-bold opacity-50">有效率</div><div id="statRate" class="stat-value">0%</div></div></div>
         </div>
 
-        <!-- 4. Charts (3x2 布局) -->
+        <!-- 4. Charts (5 Doughnuts) -->
         <div class="row g-3 mb-4">
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>画质占比</h6><div style="height:140px"><canvas id="resChart"></canvas></div></div></div>
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>稳定性</h6><div style="height:140px"><canvas id="stabChart"></canvas></div></div></div>
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>响应延迟</h6><div style="height:140px"><canvas id="latChart"></canvas></div></div></div>
-        </div>
-        <div class="row g-3 mb-5">
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>视频编码</h6><div style="height:140px"><canvas id="vCodecChart"></canvas></div></div></div>
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>音频编码</h6><div style="height:140px"><canvas id="aCodecChart"></canvas></div></div></div>
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>Host 状态分析</h6><div style="height:140px"><canvas id="hostChart"></canvas></div></div></div>
+            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:140px;"><h6>画质占比</h6><div style="height:110px"><canvas id="resChart"></canvas></div></div></div>
+            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:140px;"><h6>稳定性</h6><div style="height:110px"><canvas id="stabChart"></canvas></div></div></div>
+            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:140px;"><h6>响应延迟</h6><div style="height:110px"><canvas id="latChart"></canvas></div></div></div>
+            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:140px;"><h6>视频编码</h6><div style="height:110px"><canvas id="vCodecChart"></canvas></div></div></div>
+            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:140px;"><h6>音频编码</h6><div style="height:110px"><canvas id="aCodecChart"></canvas></div></div></div>
         </div>
 
         <!-- 5. Log -->
@@ -135,28 +132,20 @@
 </div>
 
 <!-- Modal 任务配置 -->
-<div class="modal fade" id="editModal" data-bs-backdrop="static" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-4" style="border-radius:30px;">
-    <h5 class="fw-800 mb-4 text-center text-dark">任务配置参数</h5>
+<div class="modal fade" id="editModal" data-bs-backdrop="static" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-4" style="border-radius:35px;">
+    <h5 class="fw-800 mb-4 text-center text-dark">探测任务设置</h5>
     <input type="hidden" id="editId">
-    <div class="mb-4"><label class="fw-bold small text-muted">名称</label><input type="text" id="editName" class="form-control bg-light border-0 rounded-3 p-3"></div>
-    <div class="mb-4"><label class="fw-bold small text-muted">URL</label><input type="text" id="editUrl" class="form-control bg-light border-0 rounded-3 p-3"></div>
-    <div class="mb-4"><label class="fw-bold small text-muted text-uppercase">保留分辨率</label>
-        <div class="res-tag-group mt-2">
-            <input type="checkbox" id="res_sd" class="res-tag-check" value="sd"><label for="res_sd" class="res-tag-label">SD</label>
-            <input type="checkbox" id="res_720p" class="res-tag-check" value="720p"><label for="res_720p" class="res-tag-label">720P</label>
-            <input type="checkbox" id="res_1080p" class="res-tag-check" value="1080p"><label for="res_1080p" class="res-tag-label">1080P</label>
-            <input type="checkbox" id="res_4k" class="res-tag-check" value="4k"><label for="res_4k" class="res-tag-label">4K</label>
-            <input type="checkbox" id="res_8k" class="res-tag-check" value="8k"><label for="res_8k" class="res-tag-label">8K</label>
-        </div>
-    </div>
-    <div class="row g-3 mb-4"><div class="col-6"><label class="fw-bold small text-muted">线程</label><input type="number" id="editThreads" class="form-control bg-light border-0 rounded-3" value="10"></div><div class="col-6"><label class="fw-bold small text-muted">模式</label><select id="editMode" class="form-select bg-light border-0 rounded-3" onchange="toggleFields()"><option value="none">手动</option><option value="fixed">定时</option><option value="interval">间隔</option></select></div></div>
+    <div class="mb-3"><label class="fw-bold small text-muted">名称</label><input type="text" id="editName" class="form-control bg-light border-0 rounded-3"></div>
+    <div class="mb-3"><label class="fw-bold small text-muted">URL</label><input type="text" id="editUrl" class="form-control bg-light border-0 rounded-3"></div>
+    <div class="mb-3"><label class="fw-bold small text-muted">保留分辨率</label><div class="res-tag-group mt-1"><input type="checkbox" id="res_sd" class="res-tag-check" value="sd"><label for="res_sd" class="res-tag-label">SD</label><input type="checkbox" id="res_720p" class="res-tag-check" value="720p"><label for="res_720p" class="res-tag-label">720P</label><input type="checkbox" id="res_1080p" class="res-tag-check" value="1080p"><label for="res_1080p" class="res-tag-label">1080P</label><input type="checkbox" id="res_4k" class="res-tag-check" value="4k"><label for="res_4k" class="res-tag-label">4K</label><input type="checkbox" id="res_8k" class="res-tag-check" value="8k"><label for="res_8k" class="res-tag-label">8K</label></div></div>
+    <div class="row g-2 mb-3"><div class="col-6"><label class="fw-bold small text-muted">线程</label><input type="number" id="editThreads" class="form-control bg-light border-0 rounded-3" value="10"></div><div class="col-6"><label class="fw-bold small text-muted">模式</label><select id="editMode" class="form-select bg-light border-0 rounded-3" onchange="toggleFields()"><option value="none">手动执行</option><option value="fixed">定时执行</option><option value="interval">间隔循环</option></select></div></div>
     <div id="ef" class="mb-3 d-none"><input type="text" id="editTimes" class="form-control rounded-3" placeholder="08:00, 20:00"></div>
     <div id="ei" class="mb-3 d-none"><input type="number" id="editHours" class="form-control rounded-3" placeholder="小时"></div>
-    <div class="form-check form-switch mb-4 bg-light p-3 px-5 rounded-4 shadow-sm"><input class="form-check-input" type="checkbox" id="editEnabled" checked style="width:45px; height:22px; cursor:pointer;"><label class="form-check-label fw-bold"> 启用计划任务</label></div>
-    <div class="d-flex justify-content-between pt-3 border-top"><button class="btn btn-outline-danger" style="border-radius:14px; font-weight:700" id="delBtn">移除任务</button><button class="btn btn-grad btn-primary-grad px-5" id="saveSubBtn">保存同步</button></div>
+    <div class="form-check form-switch mb-4"><input class="form-check-input" type="checkbox" id="editEnabled" checked><label class="form-check-label fw-bold">启用此计划</label></div>
+    <div class="d-flex justify-content-between pt-3 border-top"><button class="btn btn-outline-danger" style="border-radius:12px; border-width:2px; font-weight:700" id="delBtn">移除任务</button><button class="btn btn-grad btn-primary-grad px-5" id="saveSubBtn">保存同步</button></div>
 </div></div></div>
 
-<div class="modal fade" id="settingsModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-5" style="border-radius:35px;"><h5 class="fw-800 mb-4 text-center">系统设置面板</h5><div class="d-flex align-items-center justify-content-between mb-4 bg-primary bg-opacity-10 p-4 rounded-4"><div><h6 class="fw-bold mb-1">GPU 硬件加速探测</h6></div><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="globalHwAccel" checked style="width:50px; height:25px;"></div></div><div class="mb-3"><label class="fw-bold small text-muted">EPG 接口</label><input type="text" id="globalEpg" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3"><label class="fw-bold small text-muted">台标路径</label><input type="text" id="globalLogo" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3 bg-light p-3 rounded-4 small d-flex justify-content-between align-items-center"><span>V4: <b id="ipV4">--</b> | V6: <b id="ipV6">--</b></span><button class="btn btn-xs btn-dark py-1" onclick="testNetwork()">测试网络</button></div><div id="hwResult" class="mb-3 d-none animate__animated animate__fadeIn"><div id="hwStatusMsg" class="fw-bold mb-1 text-center"></div><div style="max-height:150px;overflow-y:auto;"><table class="table table-sm table-dark x-small rounded-3 overflow-hidden"><thead><tr><th>Codec</th><th>Status</th></tr></thead><tbody id="hwTbody"></tbody></table></div></div><div class="hw-console mb-3" id="hwOutput">等待驱动诊断...</div><button class="btn btn-dark w-100 mb-4 rounded-3 py-2" onclick="testHardware()">开始 VA-API 诊断</button><button class="btn btn-grad btn-primary-grad w-100 py-3 shadow-lg" id="saveGlobalSettingsBtn">应用并保存配置</button></div></div></div>
+<div class="modal fade" id="settingsModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg p-5" style="border-radius:35px;"><h5 class="fw-800 mb-4 text-center">系统设置</h5><div class="d-flex align-items-center justify-content-between mb-3 bg-primary bg-opacity-10 p-3 rounded-4"><div><h6 class="fw-bold mb-1">GPU 硬件加速探测</h6></div><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="globalHwAccel" style="width:50px; height:25px;"></div></div><div class="mb-3"><label class="fw-bold small text-muted">EPG 接口</label><input type="text" id="globalEpg" class="form-control bg-light border-0 rounded-3"></div><div class="mb-3"><label class="fw-bold small text-muted">台标路径</label><input type="text" id="globalLogo" class="form-control bg-light border-0 rounded-3"></div><div class="bg-light p-3 rounded-4 mb-3 small d-flex justify-content-between align-items-center"><span>V4: <b id="ipV4">--</b> | V6: <b id="ipV6">--</b></span><button class="btn btn-sm btn-dark" onclick="testNetwork()">网络测试</button></div><div id="hwResult" class="mb-3 d-none animate__animated animate__fadeIn"><div id="hwStatusMsg" class="fw-bold mb-1 text-center"></div><div style="max-height:100px;overflow-y:auto;"><table class="table table-sm table-dark x-small rounded-3"><thead><tr><th>格式</th><th>Status</th></tr></thead><tbody id="hwTbody"></tbody></table></div></div><div class="hw-console mb-3" id="hwOutput">等待测试驱动...</div><button class="btn btn-dark w-100 mb-4 rounded-3 py-2" onclick="testHardware()">运行 VA-API 诊断</button><button class="btn btn-grad btn-primary-grad w-100 py-3 shadow-lg" id="saveGlobalSettingsBtn">应用并保存</button></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -173,14 +162,13 @@
 
     function initCharts() {
         Object.values(charts).forEach(c => c.destroy());
-        const tipOpt = { callbacks: { label: (ctx) => { let sum = ctx.dataset.data.reduce((a,b)=>a+b,0); return `${ctx.label}: ${ctx.raw} (${sum>0?(ctx.raw/sum*100).toFixed(1):0}%)`; } } };
-        const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tipOpt }, cutout: '75%' };
+        const tip = { callbacks: { label: (ctx) => { let sum = ctx.dataset.data.reduce((a,b)=>a+b,0); return `${ctx.label}: ${ctx.raw} (${sum>0?(ctx.raw/sum*100).toFixed(1):0}%)`; } } };
+        const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tip }, cutout: '75%' };
         charts.res = new Chart(document.getElementById('resChart'), { type:'doughnut', data:{ labels:['4K','1080P','720P','SD'], datasets:[{ data:[0,0,0,0], backgroundColor:['#8b5cf6','#3b82f6','#10b981','#f59e0b'], borderWidth:0 }] }, options: opt });
         charts.stab = new Chart(document.getElementById('stabChart'), { type:'doughnut', data:{ labels:['成功','失败','熔断'], datasets:[{ data:[0,0,0], backgroundColor:['#10b981','#f43f5e','#f59e0b'], borderWidth:0 }] }, options: opt });
         charts.lat = new Chart(document.getElementById('latChart'), { type:'doughnut', data:{ labels:['<100ms','<500ms','>500ms'], datasets:[{ data:[0,0,0], backgroundColor:['#6366f1','#3b82f6','#94a3b8'], borderWidth:0 }] }, options: opt });
         charts.vCodec = new Chart(document.getElementById('vCodecChart'), { type:'doughnut', data:{ labels:[], datasets:[{ data:[], backgroundColor:['#ec4899','#8b5cf6','#3b82f6','#64748b','#a855f7'], borderWidth:0 }] }, options: opt });
-        charts.aCodec = new Chart(document.getElementById('aCodecChart'), { type:'doughnut', data:{ labels:[], datasets:[{ data:[], backgroundColor:['#10b981','#3b82f6','#f59e0b','#94a3b8','#ec4899','#8b5cf6'], borderWidth:0 }] }, options: opt });
-        charts.host = new Chart(document.getElementById('hostChart'), { type:'doughnut', data:{ labels:['活跃Host','熔断Host'], datasets:[{ data:[0,0], backgroundColor:['#3b82f6','#dc2626'], borderWidth:0 }] }, options: opt });
+        charts.aCodec = new Chart(document.getElementById('aCodecChart'), { type:'doughnut', data:{ labels:[], datasets:[{ data:[], backgroundColor:['#10b981','#3b82f6','#f59e0b','#94a3b8','#ec4899'], borderWidth:0 }] }, options: opt });
     }
 
     async function loadSubs() {
@@ -196,8 +184,7 @@
         document.getElementById('viewUrl').innerText = s.url;
         document.getElementById('m3uUrl').value = `${window.location.origin}/sub/${id}.m3u`;
         document.getElementById('txtUrl').value = `${window.location.origin}/sub/${id}.txt`;
-        initCharts(); loadSubs(); 
-        if(pollTimer) clearInterval(pollTimer); pollTimer = setInterval(updateStatus, 1500);
+        initCharts(); loadSubs(); if(pollTimer) clearInterval(pollTimer); pollTimer = setInterval(updateStatus, 1500);
     }
 
     async function updateStatus() {
@@ -213,10 +200,8 @@
                 charts.res.data.datasets[0].data = [data.analytics.res['4K']||0, data.analytics.res['1080P']||0, data.analytics.res['720P']||0, data.analytics.res['SD']||0]; charts.res.update('none');
                 charts.lat.data.datasets[0].data = [data.analytics.lat['<100ms']||0, data.analytics.lat['<500ms']||0, data.analytics.lat['>500ms']||0]; charts.lat.update('none');
                 charts.stab.data.datasets[0].data = [data.analytics.stability.success, data.analytics.stability.fail, data.analytics.stability.banned]; charts.stab.update('none');
-                const vc = data.analytics.v_codec; charts.vCodec.data.labels = Object.keys(vc); charts.vCodec.data.datasets[0].data = Object.values(vc); charts.vCodec.update('none');
-                const ac = data.analytics.a_codec; charts.aCodec.data.labels = Object.keys(ac); charts.aCodec.data.datasets[0].data = Object.values(ac); charts.aCodec.update('none');
-                const hostTotal = Math.max(1, data.total/20);
-                charts.host.data.datasets[0].data = [Math.max(0, 100 - data.banned_count), data.banned_count]; charts.host.update('none');
+                charts.vCodec.data.labels = Object.keys(data.analytics.v_codec); charts.vCodec.data.datasets[0].data = Object.values(data.analytics.v_codec); charts.vCodec.update('none');
+                charts.aCodec.data.labels = Object.keys(data.analytics.a_codec); charts.aCodec.data.datasets[0].data = Object.values(data.analytics.a_codec); charts.aCodec.update('none');
             }
             document.getElementById('console').innerHTML = data.logs.map(l => `<div class="log-line ${l.includes('✅')?'log-success':(l.includes('❌')?'log-fail':'log-warning')}">${l}</div>`).join('');
             if(autoScroll) conBox.scrollTop = 999999;
@@ -226,49 +211,24 @@
             document.getElementById('sysCpu').innerText = sdata.cpu + '%'; document.getElementById('cpuBar').style.width = sdata.cpu + '%';
             document.getElementById('sysRam').innerText = sdata.ram + '%'; document.getElementById('ramBar').style.width = sdata.ram + '%';
             document.getElementById('sysGpuVal').innerText = sdata.gpu + '%'; document.getElementById('gpuBar').style.width = sdata.gpu + '%';
-            document.getElementById('sysGpu').innerText = sdata.gpu_active ? "ACTIVE" : "IDLE"; document.getElementById('sysGpu').style.color = sdata.gpu_active ? "#fbbf24" : "#cbd5e1";
+            document.getElementById('sysGpu').innerText = sdata.gpu_active ? "ACTIVE" : "IDLE"; document.getElementById('sysGpu').style.color = sdata.gpu_active ? "#fbbf24" : "#64748b";
         } catch(e) {}
     }
 
-    async function testNetwork() {
-        document.getElementById('ipV4').innerText = "..."; document.getElementById('ipV6').innerText = "...";
-        const r = await fetch('/api/network_test'); const d = await r.json();
-        document.getElementById('ipV4').innerHTML = d.v4.status ? `✅ ${d.v4.ip}` : "❌";
-        document.getElementById('ipV6').innerHTML = d.v6.status ? `✅ ${d.v6.ip}` : "❌";
-    }
-
-    async function testHardware() { 
-        const out = document.getElementById('hwOutput'); out.innerText = "诊断中..."; 
-        const r = await fetch('/api/hw_test'); const d = await r.json(); 
-        out.innerText = d.raw; 
-        document.getElementById('hwResult').classList.remove('d-none');
-        document.getElementById('hwStatusMsg').innerText = d.message;
-        document.getElementById('hwStatusMsg').style.color = d.status === "success" ? "#10b981" : "#ef4444";
-        document.getElementById('hwTbody').innerHTML = d.codecs.map(c => `<tr><td>${c}</td><td>✅</td></tr>`).join('');
-    }
-
-    document.getElementById('addNewTaskBtn').onclick = () => { 
-        document.getElementById('editId').value=""; document.getElementById('editName').value=""; document.getElementById('editUrl').value=""; 
-        ["sd", "720p", "1080p", "4k", "8k"].forEach(t => document.getElementById('res_'+t).checked = true);
-        document.getElementById('delBtn').classList.add('d-none'); editModal.show(); 
-    };
+    document.getElementById('addNewTaskBtn').onclick = () => { document.getElementById('editId').value=""; document.getElementById('editName').value=""; document.getElementById('editUrl').value=""; ["sd", "720p", "1080p", "4k", "8k"].forEach(t => document.getElementById('res_'+t).checked = true); editModal.show(); };
     document.getElementById('saveSubBtn').onclick = saveSub;
     document.getElementById('saveGlobalSettingsBtn').onclick = saveGlobalSettings;
     document.getElementById('delBtn').onclick = async () => { if(confirm('⚠️ 确认彻底删除任务？')){ await fetch('/api/subs/delete/'+document.getElementById('editId').value); editModal.hide(); currentId=null; document.getElementById('dashboard').classList.add('d-none'); loadSubs(); } };
 
-    function editCurrent() { 
-        const s = subs.find(x => x.id === currentId); if(!s) return;
-        document.getElementById('editId').value=s.id; document.getElementById('editName').value=s.name; document.getElementById('editUrl').value=s.url; 
-        document.getElementById('editThreads').value=s.threads||10; document.getElementById('editEnabled').checked = s.enabled!==false;
-        const f = s.res_filter || ["sd", "720p", "1080p", "4k", "8k"];
-        ["sd", "720p", "1080p", "4k", "8k"].forEach(r => document.getElementById('res_'+r).checked = f.includes(r));
-        document.getElementById('delBtn').classList.remove('d-none'); toggleFields(); editModal.show(); 
-    }
+    function editCurrent() { const s = subs.find(x => x.id === currentId); if(!s) return; document.getElementById('editId').value=s.id; document.getElementById('editName').value=s.name; document.getElementById('editUrl').value=s.url; document.getElementById('editThreads').value=s.threads||10; document.getElementById('editEnabled').checked = s.enabled!==false; ["sd", "720p", "1080p", "4k", "8k"].forEach(r => document.getElementById('res_'+r).checked = (s.res_filter||[]).includes(r)); editModal.show(); }
     function toggleFields() { const m=document.getElementById('editMode').value; document.getElementById('ef').classList.toggle('d-none', m!=='fixed'); document.getElementById('ei').classList.toggle('d-none', m!=='interval'); }
     async function saveSub() { const f = []; ["sd", "720p", "1080p", "4k", "8k"].forEach(t => { if(document.getElementById('res_'+t).checked) f.push(t); }); const d = { id: document.getElementById('editId').value, name: document.getElementById('editName').value, url: document.getElementById('editUrl').value, threads: document.getElementById('editThreads').value, schedule_mode: document.getElementById('editMode').value, fixed_times: document.getElementById('editTimes').value, interval_hours: document.getElementById('editHours').value, enabled: document.getElementById('editEnabled').checked, res_filter: f }; await fetch('/api/subs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d)}); editModal.hide(); loadSubs(); }
     function startTask() { if(currentId) fetch('/api/start/' + currentId); autoScroll = true; }
     function stopTask() { if(currentId) fetch('/api/stop/' + currentId); }
     function showSettings() { settingsModal.show(); }
+    async function saveGlobalSettings() { const d = { use_hwaccel: document.getElementById('globalHwAccel').checked, epg_url: document.getElementById('globalEpg').value, logo_base: document.getElementById('globalLogo').value }; await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d) }); settingsModal.hide(); }
+    async function testHardware() { const out = document.getElementById('hwOutput'); out.innerText = "诊断中..."; const r = await fetch('/api/hw_test'); const d = await r.json(); out.innerText = d.raw; document.getElementById('hwResult').classList.remove('d-none'); document.getElementById('hwStatusMsg').innerText = d.message; document.getElementById('hwStatusMsg').style.color = d.status === "success" ? "#10b981" : "#ef4444"; document.getElementById('hwTbody').innerHTML = d.codecs.map(c => `<tr><td>${c}</td><td>✅</td></tr>`).join(''); }
+    async function testNetwork() { document.getElementById('ipV4').innerText = "..."; document.getElementById('ipV6').innerText = "..."; const r = await fetch('/api/network_test'); const d = await r.json(); document.getElementById('ipV4').innerHTML = d.v4.status ? `✅ ${d.v4.ip}` : "❌"; document.getElementById('ipV6').innerHTML = d.v6.status ? `✅ ${d.v6.ip}` : "❌"; }
     function copy(id) { const el = document.getElementById(id); el.select(); document.execCommand('copy'); const b = event.target; const old = b.innerText; b.innerText = "COPIED"; setTimeout(() => b.innerText = old, 1500); }
     window.onload = loadSubs;
 </script>
