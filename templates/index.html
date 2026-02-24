@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>m3u-checker Pro | Pro Dashboard</title>
+    <title>m3u-checker Pro | Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -62,7 +62,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header text-center">
-        <h3 class="fw-800 animate__animated animate__fadeInLeft"><i class="bi bi-cpu-fill me-2 text-warning"></i> M3U-Checker Pro</h3>
+        <h3 class="fw-800 animate__animated animate__fadeInLeft"><i class="bi bi-cpu-fill me-2 text-warning"></i> M3U-Checker</h3>
         <button class="btn btn-grad btn-primary-grad w-100 mt-4 shadow" id="addNewTaskBtn">
             <i class="bi bi-plus-circle-fill"></i> 新增检测任务
         </button>
@@ -118,11 +118,8 @@
             <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>画质占比</h6><div style="height:140px"><canvas id="resChart"></canvas></div></div></div>
             <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>源有效率</h6><div style="height:140px"><canvas id="stabChart"></canvas></div></div></div>
             <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>响应延迟</h6><div style="height:140px"><canvas id="latChart"></canvas></div></div></div>
-        </div>
-        <div class="row g-3 mb-5">
             <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>视频编码</h6><div style="height:140px"><canvas id="vCodecChart"></canvas></div></div></div>
             <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>音频编码</h6><div style="height:140px"><canvas id="aCodecChart"></canvas></div></div></div>
-            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>状态分析</h6><div style="height:140px"><canvas id="hostChart"></canvas></div></div></div>
         </div>
 
         <!-- 5. Log -->
