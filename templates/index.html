@@ -62,7 +62,7 @@
 
 <div class="sidebar">
     <div class="sidebar-header text-center">
-        <h3 class="fw-800 animate__animated animate__fadeInLeft"><i class="bi bi-cpu-fill me-2 text-warning"></i> M3U Pro</h3>
+        <h3 class="fw-800 animate__animated animate__fadeInLeft"><i class="bi bi-cpu-fill me-2 text-warning"></i> M3U-Checker Pro</h3>
         <button class="btn btn-grad btn-primary-grad w-100 mt-4 shadow" id="addNewTaskBtn">
             <i class="bi bi-plus-circle-fill"></i> 新增检测任务
         </button>
@@ -83,7 +83,7 @@
     <div id="noSelect" class="h-100 d-flex flex-column align-items-center justify-content-center opacity-25 text-center">
         <i class="bi bi-intersect display-1 mb-3"></i>
         <h2 class="fw-800 text-dark">Operational Dashboard</h2>
-        <p>选择一个任务，开启多维数据实时分析</p>
+        <p>选择/新增一个任务，开启极速有效性检测</p>
     </div>
 
     <div id="dashboard" class="d-none animate__animated animate__fadeIn">
@@ -107,19 +107,22 @@
         <!-- 3. Stats -->
         <div class="row g-3 mb-4 text-center">
             <div class="col"><div class="glass-card mb-0"><i class="bi bi-list-task stat-icon-bg text-primary"></i><div class="small fw-bold opacity-50">总频道</div><div id="statTotal" class="stat-value">0</div></div></div>
-            <div class="col"><div class="glass-card text-info mb-0"><i class="bi bi-lightning stat-icon-bg"></i><div class="small fw-bold opacity-50">已处理</div><div id="statCurrent" class="stat-value">0</div></div></div>
+            <div class="col"><div class="glass-card text-info mb-0"><i class="bi bi-lightning stat-icon-bg"></i><div class="small fw-bold opacity-50">处理数</div><div id="statCurrent" class="stat-value">0</div></div></div>
             <div class="col"><div class="glass-card text-success mb-0"><i class="bi bi-check2-circle stat-icon-bg"></i><div class="small fw-bold opacity-50">有效源</div><div id="statSuccess" class="stat-value">0</div></div></div>
-            <div class="col"><div class="glass-card text-warning mb-0"><i class="bi bi-shield-slash stat-icon-bg"></i><div class="small fw-bold opacity-50">已熔断</div><div id="statBanned" class="stat-value">0</div></div></div>
             <div class="col"><div class="glass-card text-primary mb-0"><i class="bi bi-graph-up stat-icon-bg"></i><div class="small fw-bold opacity-50">有效率</div><div id="statRate" class="stat-value">0%</div></div></div>
+            <div class="col"><div class="glass-card text-warning mb-0"><i class="bi bi-shield-slash stat-icon-bg"></i><div class="small fw-bold opacity-50">熔断数</div><div id="statBanned" class="stat-value">0</div></div></div>
         </div>
 
-        <!-- 4. Charts (5 Doughnuts) -->
+        <!-- 4. Charts (3x2 布局) -->
         <div class="row g-3 mb-4">
-            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:140px;"><h6>画质占比</h6><div style="height:110px"><canvas id="resChart"></canvas></div></div></div>
-            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:140px;"><h6>稳定性</h6><div style="height:110px"><canvas id="stabChart"></canvas></div></div></div>
-            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:140px;"><h6>响应延迟</h6><div style="height:110px"><canvas id="latChart"></canvas></div></div></div>
-            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:140px;"><h6>视频编码</h6><div style="height:110px"><canvas id="vCodecChart"></canvas></div></div></div>
-            <div class="col" style="flex: 1;"><div class="glass-card chart-card mb-0 text-center" style="height:140px;"><h6>音频编码</h6><div style="height:110px"><canvas id="aCodecChart"></canvas></div></div></div>
+            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>画质占比</h6><div style="height:140px"><canvas id="resChart"></canvas></div></div></div>
+            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>源有效率</h6><div style="height:140px"><canvas id="stabChart"></canvas></div></div></div>
+            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>响应延迟</h6><div style="height:140px"><canvas id="latChart"></canvas></div></div></div>
+        </div>
+        <div class="row g-3 mb-5">
+            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>视频编码</h6><div style="height:140px"><canvas id="vCodecChart"></canvas></div></div></div>
+            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>音频编码</h6><div style="height:140px"><canvas id="aCodecChart"></canvas></div></div></div>
+            <div class="col-md-4"><div class="glass-card chart-card mb-0 text-center" style="height:200px;"><h6>状态分析</h6><div style="height:140px"><canvas id="hostChart"></canvas></div></div></div>
         </div>
 
         <!-- 5. Log -->
