@@ -15,12 +15,14 @@ OUTPUT_DIR = os.path.join(DATA_DIR, "output")
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 os.makedirs(LOG_DIR, exist_ok=True); os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+# --- 全局变量 ---
 subs_status, ip_cache = {}, {}
 api_lock, log_lock, file_lock = threading.Lock(), threading.Lock(), threading.Lock()
 scheduler = BackgroundScheduler(); scheduler.start()
 
 # --- 辅助工具 ---
 def get_now(): return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+def get_today(): return datetime.datetime.now().strftime('%Y-%m-%d')
 def format_duration(seconds): return str(datetime.timedelta(seconds=int(seconds)))
 
 def load_config():
@@ -35,7 +37,7 @@ def save_config(config):
     with open(CONFIG_FILE, 'w', encoding='utf-8') as f: json.dump(config, f, indent=4, ensure_ascii=False)
 
 def write_log_csv(d):
-    path = os.path.join(LOG_DIR, f"log_{datetime.datetime.now().strftime('%Y-%m-%d')}.csv")
+    path = os.path.join(LOG_DIR, f"log_{get_today()}.csv")
     headers = ["时间", "任务", "状态", "频道", "分辨率", "视频编码", "音频编码", "FPS", "延迟(ms)", "网速(Mbps)", "地区", "运营商", "URL"]
     try:
         with file_lock:
@@ -44,19 +46,26 @@ def write_log_csv(d):
                 w = csv.DictWriter(f, fieldnames=headers); (not exists) and w.writeheader(); w.writerow(d)
     except: pass
 
-def get_ip_info_safe(hostname):
-    try:
-        if hostname in ip_cache: return ip_cache[hostname]
-        ip = socket.gethostbyname(hostname)
-        if ip in ip_cache: return ip_cache[ip]
-        with api_lock:
-            time.sleep(1.35)
-            r = requests.get(f"http://ip-api.com/json/{ip}?lang=zh-CN", timeout=3, verify=False).json()
-            if r.get('status') == 'success':
-                info = {"city": r.get('city', '未知'), "isp": r.get('isp', '未知')}
-                ip_cache[ip] = info; ip_cache[hostname] = info; return info
-    except: pass
-    return {"city": "未知", "isp": "未知"}
+# --- 【解耦】IP定位后台抓取逻辑 ---
+def fetch_ip_locations(host_list):
+    """
+    独立线程执行：按去重后的Host列表逐一抓取定位
+    """
+    for host in host_list:
+        if not host or host in ip_cache: continue
+        try:
+            ip = socket.gethostbyname(host)
+            if ip in ip_cache:
+                ip_cache[host] = ip_cache[ip]
+                continue
+            with api_lock:
+                time.sleep(1.35) # 频率保护
+                r = requests.get(f"http://ip-api.com/json/{ip}?lang=zh-CN", timeout=3, verify=False).json()
+                if r.get('status') == 'success':
+                    info = {"city": r.get('city', '未知'), "isp": r.get('isp', '未知')}
+                    ip_cache[ip] = info
+                    ip_cache[host] = info
+        except: pass
 
 def probe_stream(url, use_hw):
     accel_type = os.getenv("HW_ACCEL_TYPE", "vaapi").lower()
@@ -73,7 +82,7 @@ def probe_stream(url, use_hw):
                 rb = fmt.get('bit_rate') or v.get('bit_rate') or "0"
                 fps = "?"
                 if v.get('avg_frame_rate') and '/' in v['avg_frame_rate']:
-                    try: n, d = v['avg_frame_rate'].split('/'); fps = str(round(int(num)/int(den))) if int(den)>0 else "?"
+                    try: n, d = v['avg_frame_rate'].split('/'); fps = str(round(int(num)/int(den))) if int(den)>0 else "0"
                     except: pass
                 return {"res": f"{v.get('width','?')}x{v.get('height','?')}", "h": v.get('height', 0), "v_codec": v.get('codec_name', 'UNK').upper(), "a_codec": a.get('codec_name', 'UNK').upper() if a else "无音频", "fps": fps, "br": f"{round(int(rb)/1024/1024, 2)}Mbps", "icon": icon}
         except: pass
@@ -87,8 +96,9 @@ def probe_stream(url, use_hw):
 def test_single_channel(sub_id, name, url, use_hw):
     status = subs_status[sub_id]
     if status["stop_requested"]: return None
-    parsed = urlparse(url); hp = f"{parsed.hostname}:{parsed.port or (443 if parsed.scheme=='https' else 80)}"
-    if hp in status.get("blacklisted_hosts", set()): 
+    parsed = urlparse(url); host = parsed.hostname; hp = f"{host}:{parsed.port or (443 if parsed.scheme=='https' else 80)}"
+    
+    if hp in status["blacklisted_hosts"]: 
         with log_lock: status["analytics"]["stability"]["banned"] += 1
         return None
     
@@ -96,8 +106,8 @@ def test_single_channel(sub_id, name, url, use_hw):
         if hp not in status["summary_host"]: status["summary_host"][hp] = {"t": 0, "s": 0, "f": 0, "lat_sum":0, "speed_sum":0, "score_sum":0}
         if hp not in status["consecutive_failures"]: status["consecutive_failures"][hp] = 0
 
-    city_found = "未知城市"
     try:
+        # 1. 基础连接测试
         start_time = time.time()
         resp = requests.get(url, stream=True, timeout=8, verify=False, headers={'User-Agent': 'Mozilla/5.0'})
         if resp.status_code != 200: raise Exception(f"HTTP {resp.status_code}")
@@ -105,39 +115,37 @@ def test_single_channel(sub_id, name, url, use_hw):
         td, ss = 0, time.time()
         for chunk in resp.iter_content(chunk_size=128*1024):
             if status["stop_requested"]: resp.close(); return None
-            td += len(chunk); 
-            if time.time() - ss > 2: break
+            td += len(chunk); (time.time() - ss > 2) and True; break
         speed = round((td * 8) / ((time.time() - ss) * 1024 * 1024), 2)
         resp.close()
         
+        # 2. ffprobe 探测 (核心判定)
         meta = probe_stream(url, use_hw)
         if not meta: raise Exception("ProbeFail")
         
-        geo = get_ip_info_safe(parsed.hostname)
-        city_found = geo['city']
+        # 3. 读取解耦后的IP信息
+        geo = ip_cache.get(host) or ip_cache.get(hp.split(':')[0]) or {"city": "查询中...", "isp": "查询中..."}
+        city = geo['city']; isp = geo['isp']
         
         with log_lock:
             status["consecutive_failures"][hp] = 0; status["success"] += 1; status["summary_host"][hp]["s"] += 1
-            if city_found not in status["summary_city"]: status["summary_city"][city_found] = {"t": 0, "s": 0}
-            status["summary_city"][city_found]["s"] += 1
-            
-            # 性能累加用于 Host 均值统计
+            if city not in status["summary_city"]: status["summary_city"][city] = {"t": 0, "s": 0}
+            status["summary_city"][city]["s"] += 1
             status["summary_host"][hp]["lat_sum"] += latency
             status["summary_host"][hp]["speed_sum"] += speed
             
             h = int(meta['h']); res_tag = "8K" if h>=4320 else "4K" if h>=2160 else "1080P" if h>=1080 else "720P" if h>=720 else "SD"
             status["analytics"]["res"][res_tag] += 1
             status["analytics"]["lat"]["<100ms" if latency<100 else "<500ms" if latency<500 else ">500ms"] += 1
-            vc = meta['v_codec']; status["analytics"]["v_codec"][vc] = status["analytics"]["v_codec"].get(vc, 0) + 1
-            ac = meta['a_codec']; status["analytics"]["a_codec"][ac] = status["analytics"]["a_codec"].get(ac, 0) + 1
+            status["analytics"]["v_codec"][meta['v_codec']] = status["analytics"]["v_codec"].get(meta['v_codec'], 0) + 1
+            status["analytics"]["a_codec"][meta['a_codec']] = status["analytics"]["a_codec"].get(meta['a_codec'], 0) + 1
             status["analytics"]["stability"]["success"] += 1
-
+            
             score = h + speed*5 - latency/10
             status["summary_host"][hp]["score_sum"] += score
-            
-            msg = f"✅ {name}: {meta['icon']}{meta['res']} | 🎬{meta['v_codec']} | 🎵{meta['a_codec']} | 🎞️{meta['fps']} | 📊{speed}Mbps | ⏱️{latency}ms | 📍{city_found} | 🌐{hp}"
+            msg = f"✅ {name}: {meta['icon']}{meta['res']} | 🎬{meta['v_codec']} | 🎵{meta['a_codec']} | 🎞️{meta['fps']} | 📊{speed}Mbps | ⏱️{latency}ms | 📍{city} | 🌐{hp}"
             status["logs"].append(msg)
-            write_log_csv({"时间": get_now(), "任务": status['sub_name'], "状态": "成功", "频道": name, "分辨率": meta['res'], "视频编码": meta['v_codec'], "音频编码": meta['a_codec'], "FPS": meta['fps'], "延迟(ms)": latency, "网速(Mbps)": speed, "地区": city_found, "运营商": geo['isp'], "URL": url})
+            write_log_csv({"时间": get_now(), "任务": status['sub_name'], "状态": "成功", "频道": name, "分辨率": meta['res'], "视频编码": meta['v_codec'], "音频编码": meta['a_codec'], "FPS": meta['fps'], "延迟(ms)": latency, "网速(Mbps)": speed, "地区": city, "运营商": isp, "URL": url})
         return {"name": name, "url": url, "score": score, "res_tag": res_tag.lower()}
     except Exception as e:
         with log_lock:
@@ -149,8 +157,9 @@ def test_single_channel(sub_id, name, url, use_hw):
     finally:
         with log_lock: 
             status["current"] += 1; status["summary_host"][hp]["t"] += 1
-            if city_found not in status["summary_city"]: status["summary_city"][city_found] = {"t": 0, "s": 0}
-            status["summary_city"][city_found]["t"] += 1
+            ck = city if 'city' in locals() else "未知城市"
+            if ck not in status["summary_city"]: status["summary_city"][ck] = {"t": 0, "s": 0}
+            status["summary_city"][ck]["t"] += 1
 
 def run_task(sub_id):
     config = load_config(); sub = next((s for s in config["subscriptions"] if s["id"] == sub_id), None)
@@ -162,55 +171,43 @@ def run_task(sub_id):
     raw_channels = []
     try:
         r = requests.get(sub["url"], timeout=15, verify=False); r.encoding = r.apparent_encoding
+        cn = "未知频道"
         for line in r.text.split('\n'):
             line = line.strip()
-            if "#EXTINF" in line: name = line.split(',')[-1].strip()
-            elif line.startswith("http"): raw_channels.append((name, line))
-            elif "," in line and "http" in line:
-                p = line.split(','); raw_channels.append((p[0].strip(), p[1].strip()))
+            if "#EXTINF" in line: cn = line.split(',')[-1].strip()
+            elif line.startswith("http"): raw_channels.append((cn, line))
     except: pass
-    raw_channels = list(set(raw_channels)); total_num = len(raw_channels); subs_status[sub_id]["total"] = total_num
+    raw_channels = list(set(raw_channels)); subs_status[sub_id]["total"] = len(raw_channels)
     
-    valid_raw = []
+    # 【预分析】提取 Host 列表并在后台启动定位抓取
+    unique_hosts = list(set([urlparse(c[1]).hostname for c in raw_channels if c[1]]))
+    threading.Thread(target=fetch_ip_locations, args=(unique_hosts,)).start()
+    subs_status[sub_id]["logs"].append(f"🔍 预检完成：检测到 {len(unique_hosts)} 个独立节点地址，已开启后台定位。")
+    subs_status[sub_id]["logs"].append(f"🚀 任务启动 | 总数: {len(raw_channels)} | 线程: {int(sub.get('threads', 10))}")
+
     with ThreadPoolExecutor(max_workers=int(sub.get("threads", 10))) as executor:
         futures = [executor.submit(test_single_channel, sub_id, n, u, use_hw) for n, u in raw_channels]
-        for f in futures:
-            if subs_status[sub_id]["stop_requested"]:
-                for fut in futures: fut.cancel(); break
-            try:
-                res = f.result(timeout=50); (res) and valid_raw.append(res)
-            except: pass
+        valid_raw = [f.result() for f in futures if not subs_status[sub_id].get("stop_requested") and f.result()]
 
     valid_list = [c for c in valid_raw if c['res_tag'] in res_filter]; valid_list.sort(key=lambda x: x['score'], reverse=True)
     status = subs_status[sub_id]; duration = format_duration(time.time() - start_ts); update_ts = get_now()
     
-    # 报告生成核心逻辑
     status["logs"].append(" "); status["logs"].append("📜 ==================== 探测结算报告 ====================")
     status["logs"].append(f"⏱️ 任务总耗时: {duration} | 有效源: {len(valid_list)} / 成功探测: {status['success']}")
     status["logs"].append("🏙️ --- 地区连通汇总 ---")
     sc = sorted([i for i in status["summary_city"].items() if i[1]['t']>0], key=lambda x: x[1]['s']/x[1]['t'], reverse=True)
     for c, d in sc: status["logs"].append(f"📍 {c:<30} | 有效率: {round(d['s']/d['t']*100, 1)}% ({d['s']}/{d['t']})")
-    status["logs"].append("📡 --- 接口质量汇总 (按平均评分排序) ---")
-    # 过滤掉已熔断的
+    status["logs"].append("📡 --- 接口质量全表 (按评分排序) ---")
     active_hosts = {k: v for k, v in status["summary_host"].items() if k not in status["blacklisted_hosts"] and v['t']>0}
     sh = sorted(active_hosts.items(), key=lambda x: x[1]['score_sum']/x[1]['s'] if x[1]['s']>0 else 0, reverse=True)
     for h, d in sh:
         avg_lat = int(d['lat_sum']/d['s']) if d['s']>0 else 0
         avg_speed = round(d['speed_sum']/d['s'], 2) if d['s']>0 else 0
-        rate = round(d['s']/d['t']*100, 1)
-        status["logs"].append(f"{'⭐️' if rate>80 else '📡'} {h:<24} | ⏱️{avg_lat}ms | 🚀{avg_speed}Mbps | 有效率: {rate}%")
+        status["logs"].append(f"{'⭐️' if d['s']/d['t']>0.8 else '📡'} {h:<24} | ⏱️{avg_lat}ms | 🚀{avg_speed}Mbps | 有效率: {round(d['s']/d['t']*100, 1)}%")
     if status["blacklisted_hosts"]:
         status["logs"].append("🚫 --- 已熔断的接口清单 ---")
         for bh in status["blacklisted_hosts"]: status["logs"].append(f"❌ {bh} (连续10次失败)")
     status["logs"].append("======================================================")
-
-    # 存档持久化
-    archive = {
-        "update_time": update_ts, "duration": duration, "logs": status["logs"], 
-        "stats": {"total": status["total"], "current": status["current"], "success": status["success"], "banned": len(status["blacklisted_hosts"])},
-        "analytics": status["analytics"]
-    }
-    with open(os.path.join(OUTPUT_DIR, f"last_status_{sub_id}.json"), "w", encoding="utf-8") as f: json.dump(archive, f, ensure_ascii=False)
 
     try:
         m3u_p = os.path.join(OUTPUT_DIR, f"{sub_id}.m3u"); txt_p = os.path.join(OUTPUT_DIR, f"{sub_id}.txt")
@@ -233,20 +230,18 @@ def sys_info():
             with open("/sys/class/drm/card0/device/gpu_busy_percent", 'r') as f: gpu = int(f.read().strip())
         return jsonify({"cpu": psutil.cpu_percent(), "ram": psutil.virtual_memory().percent, "gpu": gpu, "gpu_active": any(s.get("running") for s in subs_status.values())})
     except: return jsonify({"cpu": 0, "ram": 0, "gpu": 0})
-@app.route('/api/status/<sub_id>')
-def get_status(sub_id):
-    # 优先从内存获取实时数据
-    if sub_id in subs_status:
-        s = subs_status[sub_id]
-        return jsonify({"running": s["running"], "logs": s["logs"][-150:], "total": s["total"], "current": s["current"], "success": s["success"], "banned_count": len(s.get("blacklisted_hosts", [])), "analytics": s["analytics"]})
-    # 内存没有，尝试从持久化存档读取
-    archive_path = os.path.join(OUTPUT_DIR, f"last_status_{sub_id}.json")
-    if os.path.exists(archive_path):
-        with open(archive_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return jsonify({"running": False, "logs": data["logs"][-150:], "total": data["stats"]["total"], "current": data["stats"]["current"], "success": data["stats"]["success"], "banned_count": data["stats"]["banned"], "analytics": data["analytics"]})
-    return jsonify({"running": False, "logs": [], "total":0, "current":0, "success":0, "banned_count": 0, "analytics": {}})
-
+@app.route('/api/network_test')
+def network_test():
+    res = {"v4": {"status": False, "ip": ""}, "v6": {"status": False, "ip": ""}}
+    try:
+        r4 = requests.get("https://api4.ipify.org?format=json", timeout=5).json()
+        res["v4"] = {"status": True, "ip": r4['ip']}
+    except: pass
+    try:
+        r6 = requests.get("https://api6.ipify.org?format=json", timeout=5).json()
+        res["v6"] = {"status": True, "ip": r6['ip']}
+    except: pass
+    return jsonify(res)
 @app.route('/api/subs', methods=['GET', 'POST'])
 def handle_subs():
     config = load_config()
@@ -258,6 +253,10 @@ def handle_subs():
                 if s["id"] == new_sub["id"]: config["subscriptions"][i] = new_sub
         save_config(config); return jsonify({"status": "ok"})
     return jsonify({"subs": config["subscriptions"], "settings": config["settings"]})
+@app.route('/api/status/<sub_id>')
+def get_status(sub_id):
+    info = subs_status.get(sub_id, {"running": False, "logs": [], "total":0, "current":0, "success":0, "blacklisted_hosts": set(), "analytics": {"res":{},"lat":{},"v_codec":{},"a_codec":{},"stability":{"success":0,"fail":0,"banned":0}}})
+    return jsonify({"running": info.get("running", False), "logs": info.get("logs")[-150:], "total": info.get("total", 0), "current": info.get("current", 0), "success": info.get("success", 0), "banned_count": len(info.get("blacklisted_hosts", [])), "analytics": info.get("analytics")})
 @app.route('/api/start/<sub_id>')
 def start_api(sub_id): threading.Thread(target=run_task, args=(sub_id,)).start(); return jsonify({"status": "ok"})
 @app.route('/api/stop/<sub_id>')
